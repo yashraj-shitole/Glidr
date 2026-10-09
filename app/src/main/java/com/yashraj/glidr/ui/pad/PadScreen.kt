@@ -65,6 +65,9 @@ private const val TAP_SLOP_PX = 14f
 private const val TAP_MAX_MS = 220L
 private const val SWIPE_PX = 90f
 
+/** Touch again within this long after a tap and the finger drags with the left button held. */
+private const val DRAG_WINDOW_MS = 320L
+
 @Composable
 fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, onTouch: (Boolean) -> Unit, modifier: Modifier = Modifier) {
     val c = Glidr.colors
@@ -76,6 +79,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
     var tapPoint by remember { mutableStateOf(Offset.Zero) }
     val ripple = remember { Animatable(1f) }
     val level = settings.haptics
+    val lastTapUp = remember { longArrayOf(0L) }
 
     Box(
         modifier
@@ -94,12 +98,20 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                     glow = first.position
                     scope.launch { glowAlpha.animateTo(1f) }
                     val startMs = first.uptimeMillis
+                    // Tap, then touch again and move = click and hold, so windows and selections can be dragged.
+                    val dragging = settings.tapToClick && lastTapUp[0] != 0L && startMs - lastTapUp[0] <= DRAG_WINDOW_MS
+                    lastTapUp[0] = 0L
+                    if (dragging) {
+                        engine.buttonDown(HidReports.BUTTON_LEFT)
+                        haptics.play(Haptic.Click, level)
+                    }
                     var maxPointers = 1
                     var travel = 0f
                     var swipeX = 0f
                     var swipeY = 0f
                     var swiped = false
                     var lastMs = startMs
+                    try {
                     do {
                         val ev = awaitPointerEvent()
                         val down = ev.changes.filter { it.pressed }
@@ -132,6 +144,10 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                         }
                         ev.changes.forEach { it.consume() }
                     } while (ev.changes.any { it.pressed })
+                    } finally {
+                        // Never leave the button stuck down, even if the gesture is cancelled.
+                        if (dragging) engine.buttonUp(HidReports.BUTTON_LEFT)
+                    }
 
                     engine.touchEnd()
                     onTouch(false)
@@ -146,11 +162,17 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                             haptics.play(Haptic.Tick, level)
                         }
                         swiped = true
+                    } else if (dragging) {
+                        haptics.play(Haptic.Tick, level)
                     } else if (quick && settings.tapToClick) {
                         tapPoint = first.position
                         scope.launch { ripple.snapTo(0f); ripple.animateTo(1f) }
                         when (maxPointers) {
-                            1 -> { engine.click(HidReports.BUTTON_LEFT); haptics.play(Haptic.Click, level) }
+                            1 -> {
+                                engine.click(HidReports.BUTTON_LEFT)
+                                haptics.play(Haptic.Click, level)
+                                lastTapUp[0] = lastMs
+                            }
                             2 -> { engine.click(HidReports.BUTTON_RIGHT); haptics.play(Haptic.Thud, level) }
                         }
                     }

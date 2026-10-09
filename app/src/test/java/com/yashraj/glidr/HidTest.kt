@@ -125,4 +125,20 @@ class HidTest {
         e.flushNow()
         assertTrue(t.mouse.last()[3] > 0)
     }
+
+    @Test
+    fun movementWhileLeftHeldCarriesTheButton() {
+        val t = FakeTransport()
+        val e = HidEngine(t, CoroutineScope(Dispatchers.Unconfined))
+        e.motion.sensitivity = 1f
+        e.motion.acceleration = 0
+        e.buttonDown(HidReports.BUTTON_LEFT)
+        e.move(20f, 5f, 1_000_000L)
+        e.flushNow()
+        val drag = t.mouse.last()
+        assertEquals(HidReports.BUTTON_LEFT.toByte(), drag[0])
+        assertEquals(20.toByte(), drag[1])
+        e.buttonUp(HidReports.BUTTON_LEFT)
+        assertEquals(0.toByte(), t.mouse.last()[0])
+    }
 }
