@@ -7,7 +7,9 @@
     <string name="state_registering">Starting…</string>
     <string name="state_ready">Ready to pair</string>
     <string name="state_connecting">Connecting…</string>
+    <string name="state_need_permission">Allow Bluetooth · tap</string>
     <string name="state_reconnecting">Reconnecting…</string>
+    <string name="state_failed">Can’t start · tap to retry</string>
     <string name="connection_status">Connection: %1$s. Tap to choose a PC</string>
     <string name="choose_pc">Choose a PC</string>
     <string name="pair_help">First time: keep Glidr open, tap Make phone discoverable, then on Windows go to Settings, Bluetooth &amp; devices, Add device, Bluetooth and pick this phone. If Windows already knows this phone, remove it there first, then pair again.</string>

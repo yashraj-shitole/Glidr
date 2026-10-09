@@ -43,6 +43,7 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startTransport() = app.transport.start()
+    fun retryTransport() = app.transport.retry()
     fun bondedHosts(): List<PcDevice> = app.transport.bondedHosts()
 
     fun connect(device: PcDevice) {

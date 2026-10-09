@@ -24,6 +24,7 @@ private class FakeTransport : HidTransport {
     val mouse = mutableListOf<List<Byte>>()
     override fun start() {}
     override fun stop() {}
+    override fun retry() {}
     override fun bondedHosts() = emptyList<PcDevice>()
     override fun connect(device: PcDevice) {}
     override fun disconnect() {}

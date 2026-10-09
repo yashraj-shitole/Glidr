@@ -2,7 +2,7 @@ package com.yashraj.glidr.hid
 
 import kotlinx.coroutines.flow.StateFlow
 
-enum class ConnectionState { Unsupported, BluetoothOff, Registering, Ready, Connecting, Connected, Reconnecting }
+enum class ConnectionState { Unsupported, BluetoothOff, Registering, Ready, Connecting, Connected, Reconnecting, Failed }
 
 data class PcDevice(val name: String, val address: String, val isComputer: Boolean = true)
 
@@ -13,6 +13,9 @@ interface HidTransport {
 
     fun start()
     fun stop()
+
+    /** Starts over after a failure or a stuck registration. */
+    fun retry()
 
     /** Paired PCs the user can connect to. */
     fun bondedHosts(): List<PcDevice>

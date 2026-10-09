@@ -46,6 +46,7 @@ class BluetoothHidTransport(context: Context) : HidTransport {
 
     private val main = Handler(Looper.getMainLooper())
     private var registerTries = 0
+    private var epoch = 0
     private var connectTries = 0
 
     private var hid: BluetoothHidDevice? = null
@@ -62,8 +63,10 @@ class BluetoothHidTransport(context: Context) : HidTransport {
                 registerTries = 0
                 _state.value = ConnectionState.Ready
                 wantConnected?.let { hid?.connect(it) }
-            } else if (started) {
+            } else if (started && hid != null) {
+                // The system dropped our registration (Bluetooth toggled, re-pairing, another app): register again.
                 _state.value = ConnectionState.Registering
+                recoverSoon()
             }
         }
 
@@ -121,7 +124,10 @@ class BluetoothHidTransport(context: Context) : HidTransport {
             if (profile == BluetoothProfile.HID_DEVICE) {
                 hid = null
                 registered = false
-                if (started) _state.value = ConnectionState.Registering
+                if (started) {
+                    _state.value = ConnectionState.Registering
+                    recoverSoon()
+                }
             }
         }
     }
@@ -178,14 +184,36 @@ class BluetoothHidTransport(context: Context) : HidTransport {
 
     /** If the profile never reports "registered" (some phones are slow or drop the proxy), start over. */
     private fun scheduleRegisterWatchdog() {
-        main.postDelayed({
-            if (started && !registered && _state.value == ConnectionState.Registering && registerTries < MAX_REGISTER_TRIES) {
-                registerTries++
-                Log.d(TAG, "registration stalled, retry $registerTries")
-                tearDown()
-                openProxy()
-            }
-        }, REGISTER_TIMEOUT_MS)
+        val e = ++epoch
+        main.postDelayed({ if (e == epoch) recoverIfStuck() }, REGISTER_TIMEOUT_MS)
+    }
+
+    private fun recoverSoon() {
+        val e = ++epoch
+        main.postDelayed({ if (e == epoch) recoverIfStuck() }, RECOVER_DELAY_MS)
+    }
+
+    private fun recoverIfStuck() {
+        if (!started || registered || _state.value != ConnectionState.Registering) return
+        if (registerTries >= MAX_REGISTER_TRIES) {
+            Log.d(TAG, "registration failed after $registerTries tries")
+            tearDown()
+            _state.value = ConnectionState.Failed
+            return
+        }
+        registerTries++
+        Log.d(TAG, "registration stalled, retry $registerTries")
+        tearDown()
+        openProxy()
+    }
+
+    override fun retry() {
+        Log.d(TAG, "manual retry")
+        main.removeCallbacksAndMessages(null)
+        val wasStarted = started
+        stop()
+        registerTries = 0
+        if (wasStarted || _state.value == ConnectionState.Failed) start()
     }
 
     private fun tearDown() {
@@ -259,7 +287,8 @@ class BluetoothHidTransport(context: Context) : HidTransport {
     private companion object {
         const val TAG = "Glidr"
         const val REGISTER_TIMEOUT_MS = 5_000L
-        const val MAX_REGISTER_TRIES = 3
+        const val RECOVER_DELAY_MS = 1_000L
+        const val MAX_REGISTER_TRIES = 4
         const val MAX_CONNECT_TRIES = 3
         const val RETRY_DELAY_MS = 2_500L
     }

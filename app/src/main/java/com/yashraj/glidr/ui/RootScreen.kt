@@ -74,12 +74,16 @@ fun RootScreen(
             Page.Settings -> SettingsScreen(s, vm::update, vm::forgetPc, { page = Page.Pad.ordinal })
             else -> Column(Modifier.fillMaxSize()) {
                 TopBar(
-                    label = connectionLabel(conn, host?.name),
+                    label = if (hasBluetoothPermission) connectionLabel(conn, host?.name) else stringResource(R.string.state_need_permission),
                     ready = conn == ConnectionState.Connected,
                     awakeOn = awake.active,
                     showAwake = s.keepAwakeEnabled,
                     onPill = {
-                        if (!hasBluetoothPermission) onRequestBluetooth() else devices = vm.bondedHosts()
+                        when {
+                            !hasBluetoothPermission -> onRequestBluetooth()
+                            conn == ConnectionState.Failed || conn == ConnectionState.Registering -> vm.retryTransport()
+                            else -> devices = vm.bondedHosts()
+                        }
                     },
                     onAwake = onToggleKeepAwake,
                     onSettings = { page = Page.Settings.ordinal },
@@ -135,6 +139,7 @@ private fun connectionLabel(state: ConnectionState, host: String?): String = whe
     ConnectionState.Connecting -> stringResource(R.string.state_connecting)
     ConnectionState.Connected -> host ?: stringResource(R.string.your_pc)
     ConnectionState.Reconnecting -> stringResource(R.string.state_reconnecting)
+    ConnectionState.Failed -> stringResource(R.string.state_failed)
 }
 
 @Composable
