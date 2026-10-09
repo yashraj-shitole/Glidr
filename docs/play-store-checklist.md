@@ -23,7 +23,7 @@ What the code already satisfies, and what only you can do in Play Console.
 6. **Permissions declaration**: `BLUETOOTH_CONNECT` is used to connect to the user's paired PC; no scanning, so no `BLUETOOTH_SCAN` or location. `RECORD_AUDIO` is used only for the user-started Voice dictation and is optional (`microphone` feature is not required).
 7. **Content rating questionnaire**, **target audience** (not designed for children), **app category** (Tools), **ads: none**.
 8. **Store listing**: 512px icon, 1024x500 feature graphic, at least two phone screenshots, short and full description. Do not use "Microsoft" or "Windows" as part of the app name; saying "works with Windows PCs" in the description is fine.
-9. **Launcher icon**: done (adaptive and monochrome vector icon). Export a 512px PNG of it for the store listing.
+9. **Launcher icon**: done (your glidr-icon set: adaptive and monochrome vectors). The 512px store icon is `docs/store/glidr-play-store-512.png`.
 10. **Pre-launch report / internal testing track** first, then closed testing (new personal developer accounts need 12 testers for 14 days before production).
 
 ## Known limits to state in the listing

@@ -1,11 +1,5 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <!-- glide trail -->
-    <path android:strokeColor="#9AD4FF3F" android:strokeWidth="3.5" android:strokeLineCap="round"
-        android:pathData="M27,80C30,64 34,52 40,42" />
-    <path android:strokeColor="#55D4FF3F" android:strokeWidth="3.5" android:strokeLineCap="round"
-        android:pathData="M21,72C23,62 26,54 31,46" />
-    <!-- cursor -->
-    <path android:fillColor="#D4FF3F" android:strokeColor="#D4FF3F" android:strokeWidth="2.5" android:strokeLineJoin="round"
-        android:pathData="M42,32L42,74L52,64L59,79L66,76L59,61L73,61Z" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M34,34 L74,47 L53,54 L46,75 Z" android:fillColor="#D4FF3F" android:strokeColor="#D4FF3F" android:strokeWidth="7" android:strokeLineJoin="round"/>
+    <path android:pathData="M64,68 L80,84" android:strokeColor="#D4FF3F" android:strokeAlpha="0.55" android:strokeWidth="6" android:strokeLineCap="round"/>
+    <path android:pathData="M75,60 L84,69" android:strokeColor="#D4FF3F" android:strokeAlpha="0.28" android:strokeWidth="5" android:strokeLineCap="round"/>
 </vector>
