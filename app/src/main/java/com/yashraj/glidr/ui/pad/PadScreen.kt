@@ -61,6 +61,7 @@ import com.yashraj.glidr.ui.Label
 import com.yashraj.glidr.ui.dialTicks
 import com.yashraj.glidr.ui.PressBox
 import com.yashraj.glidr.ui.theme.Glidr
+import com.yashraj.glidr.ui.theme.LocalReduceMotion
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -78,8 +79,9 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
     val ctx = LocalContext.current
     val haptics = remember { Haptics(ctx) }
     val scope = rememberCoroutineScope()
-    var glow by remember { mutableStateOf<Offset?>(null) }
-    val glowAlpha = remember { Animatable(0f) }
+    val reduce = LocalReduceMotion.current
+    val glass = remember(reduce) { GlassPress(reduce) }
+    LaunchedEffect(glass) { glass.run() }
     var tapPoint by remember { mutableStateOf(Offset.Zero) }
     val ripple = remember { Animatable(1f) }
     val level = settings.haptics
@@ -98,8 +100,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                     if (inStripX && inStripY) return@awaitEachGesture
                     onTouch(true)
                     engine.touchStart()
-                    glow = first.position
-                    scope.launch { glowAlpha.animateTo(1f) }
+                    scope.launch { glass.press(first.position) }
                     val startMs = first.uptimeMillis
                     // Press and hold still = click and hold, so windows and selections can be dragged.
                     var dragging = false
@@ -130,17 +131,21 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                         if (ev.type == PointerEventType.Move && down.isNotEmpty()) {
                             var dx = 0f
                             var dy = 0f
+                            var cx = 0f
+                            var cy = 0f
                             for (ch in down) {
                                 val d = ch.positionChange()
                                 dx += d.x
                                 dy += d.y
+                                cx += ch.position.x
+                                cy += ch.position.y
                             }
                             dx /= down.size
                             dy /= down.size
+                            glass.move(Offset(cx / down.size, cy / down.size))
                             travel += abs(dx) + abs(dy)
                             when {
                                 down.size == 1 && maxPointers == 1 -> {
-                                    glow = down[0].position
                                     engine.move(dx, dy, System.nanoTime())
                                 }
                                 down.size == 2 && maxPointers == 2 -> {
@@ -161,7 +166,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
 
                     engine.touchEnd()
                     onTouch(false)
-                    scope.launch { glowAlpha.animateTo(0f) }
+                    scope.launch { glass.release() }
                     val quick = lastMs - startMs <= TAP_MAX_MS && travel < TAP_SLOP_PX * maxPointers
                     if (maxPointers >= 3 && !swiped) {
                         if (abs(swipeX) > SWIPE_PX && abs(swipeX) > abs(swipeY)) {
@@ -186,25 +191,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
             },
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            val step = 22.dp.toPx()
-            var y = step / 2
-            while (y < size.height) {
-                var x = step / 2
-                while (x < size.width) {
-                    drawCircle(c.dot, 1.dp.toPx(), Offset(x, y))
-                    x += step
-                }
-                y += step
-            }
-            glow?.let {
-                val a = glowAlpha.value
-                if (a > 0.01f) {
-                    drawCircle(
-                        Brush.radialGradient(listOf(c.accent.copy(alpha = 0.34f * a), c.accent.copy(alpha = 0.11f * a), androidx.compose.ui.graphics.Color.Transparent), it, 100.dp.toPx()),
-                        100.dp.toPx(), it,
-                    )
-                }
-            }
+            drawGlass(glass, c)
             val r = ripple.value
             if (r < 1f) {
                 drawCircle(c.accent.copy(alpha = 1f - r), (8 + 47 * r).dp.toPx(), tapPoint, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
