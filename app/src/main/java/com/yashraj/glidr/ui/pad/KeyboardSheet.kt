@@ -190,7 +190,7 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
     var note by remember { mutableStateOf<String?>(null) }
     val listening = state == SttState.Listening
     val notConnected = stringResource(R.string.not_connected)
-    val skippedFmt = stringResource(R.string.voice_skipped)
+    val res = LocalContext.current.resources
 
     val hint = when {
         state == SttState.Unavailable -> stringResource(R.string.voice_unavailable)
@@ -242,7 +242,7 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
                         stt.stop()
                         engine.typeText(text)
                         stt.clear()
-                        note = if (skipped > 0) skippedFmt.format(skipped) else null
+                        note = if (skipped > 0) res.getQuantityString(R.plurals.voice_skipped, skipped, skipped) else null
                         haptics.play(Haptic.Confirm, settings.haptics)
                     }
                 }
@@ -250,9 +250,9 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
             modifier = Modifier.fillMaxWidth().height(48.dp),
             description = stringResource(R.string.send_to_pc),
             shape = CircleShape,
-            background = c.accent,
+            background = if (text.isBlank()) c.s3 else c.accent,
             border = false,
-        ) { Label(stringResource(R.string.send_to_pc), color = c.ink, style = Glidr.type.body) }
+        ) { Label(stringResource(R.string.send_to_pc), color = if (text.isBlank()) c.dim else c.ink, style = Glidr.type.body) }
     }
 }
 

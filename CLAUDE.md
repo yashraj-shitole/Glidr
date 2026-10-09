@@ -7,13 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Android app (Kotlin, Jetpack Compose) that turns the phone into a Bluetooth mouse, keyboard, media remote and voice-to-text input for a Windows PC, using the Bluetooth HID Device profile (`BluetoothHidDevice`). No PC-side software in v1.
 
 ## Current state
-Implemented: Compose theme (Midnight/Paper, four accents, Geist fonts), HID layer (descriptor, encoders, US/UK/DE key tables, `HidEngine`, `BluetoothHidTransport`), motion pipeline, Pad screen (gestures, scroll strip, mouse buttons), keyboard sheet (Keys, Shortcuts), Media, Settings, keep-awake foreground service, DataStore settings, unit tests in `app/src/test`. Not implemented yet: voice tab and `SttEngine`, Live Update promotion, a final launcher icon. None of the Bluetooth behaviour has been verified on a real phone.
+Implemented: Compose theme (Midnight/Paper, four accents, Geist fonts), HID layer (descriptor, encoders, US/UK/DE key tables, `HidEngine`, `BluetoothHidTransport`), motion pipeline, Pad screen (gestures, scroll strip, mouse buttons), keyboard sheet (Keys with a 123 symbols layer, Shortcuts, Voice), Media, Settings (incl. acceleration curve, haptics toggles, auto-reconnect, forget PC), `GlidrService` (foreground service, type `connectedDevice`: keeps the connection alive, runs keep-awake, ongoing notification with progress and Pause / Nudge now / Stop, requests Android 16 Live Update promotion), `SttEngine` with the Android `SpeechRecognizer` engine, DataStore settings, launcher icon. Tests: unit tests in `app/src/test`, Compose UI tests in `app/src/androidTest` (pass on the emulator and a real Android 16 phone). Not done: on-device Whisper engine, hand-built in-app island and lock-screen mock surfaces (the notification / Live Update replaces them), and real-PC verification of Bluetooth input.
 
-Build config: single module `:app`, package `com.yashraj.glidr`, version catalog in `gradle/libs.versions.toml`, AGP 9.4.1 with built-in Kotlin 2.2.10 plus the Compose compiler plugin, compileSdk/targetSdk 37, minSdk 29 (above the 28 floor, so ask before lowering). UI uses compose foundation only (no material3). Play Store steps are in `docs/play-store-checklist.md`.
+Build config: single module `:app`, package `com.yashraj.glidr`, version catalog in `gradle/libs.versions.toml`, AGP 9.4.1 with built-in Kotlin 2.2.10 plus the Compose compiler plugin, compileSdk/targetSdk 37, minSdk 29 (above the 28 floor, so ask before lowering). UI uses compose foundation only (no material3). Play Store steps are in `docs/play-store-checklist.md`. Commit locally as you go; there is no remote.
 
 ## Commands
 - Build: `gradlew.bat assembleDebug` (Windows) / `./gradlew assembleDebug`
 - Unit tests: `gradlew.bat testDebugUnitTest`
+- UI tests (needs a device or emulator): `gradlew.bat connectedDebugAndroidTest` (runs on every attached device, including a real phone)
 - Single unit test: `gradlew.bat testDebugUnitTest --tests "com.yashraj.glidr.SomeTest.someMethod"`
 - Lint: `gradlew.bat lintDebug`
 - Install on the connected phone: `gradlew.bat installDebug`
@@ -49,7 +50,7 @@ Mockup screens: Trackpad, Keep awake on, Keyboard, Windows shortcuts, Media, Set
 - Haptic vocabulary: click (taps, keys), thud (right click), tick (scroll detents, modifier latch), confirm (connected, sent), reject (errors). Use `VibrationEffect.Composition` when supported (API 30+), otherwise predefined effects (API 29+) or `performHapticFeedback`. Always respect the haptics intensity setting.
 
 ## Permissions
-`BLUETOOTH_CONNECT` (runtime, API 31+), `BLUETOOTH` / `BLUETOOTH_ADMIN` (maxSdk 30), `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_CONNECTED_DEVICE`, `POST_NOTIFICATIONS` (runtime, API 33+), `VIBRATE`. Add `RECORD_AUDIO` and `FOREGROUND_SERVICE_MICROPHONE` only when voice is built, and update the Play declarations then.
+`BLUETOOTH_CONNECT` (runtime, API 31+), `BLUETOOTH` / `BLUETOOTH_ADMIN` (maxSdk 30), `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_CONNECTED_DEVICE`, `POST_NOTIFICATIONS` (runtime, API 33+), `POST_PROMOTED_NOTIFICATIONS`, `RECORD_AUDIO` (runtime, Voice tab only), `VIBRATE`. No microphone foreground service type: dictation runs while the app is open.
 
 ## Workflow
 - Small steps. After each, run `assembleDebug` and the unit tests, and show me the output.

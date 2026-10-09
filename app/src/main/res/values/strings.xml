@@ -86,7 +86,10 @@
     <string name="notif_idle">Glidr is ready to control your PC</string>
     <string name="tab_voice">Voice</string>
     <string name="not_connected">Not connected to a PC</string>
-    <string name="voice_skipped">Sent. %1$d characters can\u2019t be typed over Bluetooth with this layout and were skipped.</string>
+    <plurals name="voice_skipped">
+        <item quantity="one">Sent. %1$d character can’t be typed over Bluetooth with this layout and was skipped.</item>
+        <item quantity="other">Sent. %1$d characters can’t be typed over Bluetooth with this layout and were skipped.</item>
+    </plurals>
     <string name="voice_unavailable">Speech recognition isn\u2019t available on this phone.</string>
     <string name="voice_error">Couldn\u2019t hear you. Tap the mic to try again.</string>
     <string name="voice_listening">Listening…</string>
