@@ -73,6 +73,7 @@ private const val GRAB_SLOP_PX = 24f
 /** Hold one finger still this long to grab: the left button goes down and moving drags. */
 private const val LONG_PRESS_MS = 400L
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, onTouch: (Boolean) -> Unit, modifier: Modifier = Modifier) {
     val c = Glidr.colors
@@ -146,7 +147,16 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                             travel += abs(dx) + abs(dy)
                             when {
                                 down.size == 1 && maxPointers == 1 -> {
-                                    engine.move(dx, dy, System.nanoTime())
+                                    // Android batches several touch samples per frame; feed them all, in order.
+                                    val ch = down[0]
+                                    var px = ch.previousPosition.x
+                                    var py = ch.previousPosition.y
+                                    for (h in ch.historical) {
+                                        engine.move(h.position.x - px, h.position.y - py, h.uptimeMillis * 1_000_000L)
+                                        px = h.position.x
+                                        py = h.position.y
+                                    }
+                                    engine.move(ch.position.x - px, ch.position.y - py, ch.uptimeMillis * 1_000_000L)
                                 }
                                 down.size == 2 && maxPointers == 2 -> {
                                     if (engine.scrollBy(dx, dy) > 0 && settings.hapticScroll) haptics.play(Haptic.Tick, level)

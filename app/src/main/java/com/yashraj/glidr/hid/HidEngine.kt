@@ -2,18 +2,22 @@ package com.yashraj.glidr.hid
 
 import com.yashraj.glidr.input.MotionPipeline
 import com.yashraj.glidr.input.NudgePath
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
+import kotlin.math.exp
+import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Turns gestures and key presses into HID reports on a [HidTransport]. Mouse movement is batched
- * (~125 Hz) and the hot path reuses its buffers.
+ * Turns gestures and key presses into HID reports on a [HidTransport]. Mouse movement goes out from a dedicated
+ * 250 Hz sender thread, smoothed so uneven touch input still gives an even cursor, and reuses its buffers.
  */
 class HidEngine(private val transport: HidTransport, private val scope: CoroutineScope) {
     val motion = MotionPipeline()
@@ -33,41 +37,58 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     private val keyLock = Mutex()
     private val consumerLock = Mutex()
 
+    /** Guards everything the 250 Hz sender thread and the UI thread share. */
+    private val lock = Any()
     private var buttons = 0
-    private var pendingX = 0
-    private var pendingY = 0
+    private var pendX = 0f
+    private var pendY = 0f
+    private var carryX = 0f
+    private var carryY = 0f
     private var pendingWheel = 0
     private var pendingPan = 0
-    private var flushJob: Job? = null
+    private var ticker: ScheduledFuture<*>? = null
     private var lastMoveNs = 0L
 
-    /** Start batching while a finger is down. */
+    private val sender: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "glidr-mouse").apply {
+            isDaemon = true
+            priority = Thread.MAX_PRIORITY
+        }
+    }
+
+    /** Start the 250 Hz sender while a finger is down. */
     fun touchStart() {
-        motion.reset()
-        scroll.reset()
-        panScroll.reset()
-        lastMoveNs = 0L
-        if (flushJob?.isActive == true) return
-        flushJob = scope.launch {
-            while (isActive) {
-                delay(FLUSH_MS)
-                flushNow()
-            }
+        synchronized(lock) {
+            motion.reset()
+            scroll.reset()
+            panScroll.reset()
+            lastMoveNs = 0L
+            if (ticker?.isDone == false) return
+            ticker = sender.scheduleWithFixedDelay({ runCatching { tick() } }, 0, TICK_US, TimeUnit.MICROSECONDS)
         }
     }
 
     fun touchEnd() {
+        synchronized(lock) {
+            ticker?.cancel(false)
+            ticker = null
+        }
         flushNow()
-        flushJob?.cancel()
-        flushJob = null
     }
 
+    /**
+     * Queues a movement. Touch samples (several per frame, using Android's historical points) arrive unevenly,
+     * so [tick] sends a share of what is queued every 4 ms instead of dumping each batch at once; the cursor then
+     * moves at an even rate even when input comes in bursts.
+     */
     fun move(dxPx: Float, dyPx: Float, nowNs: Long) {
-        val dtMs = if (lastMoveNs == 0L) FLUSH_MS.toFloat() else (nowNs - lastMoveNs) / 1_000_000f
+        val dtMs = if (lastMoveNs == 0L) TICK_US / 1000f else (nowNs - lastMoveNs) / 1_000_000f
         lastMoveNs = nowNs
         motion.process(dxPx, dyPx, dtMs)
-        pendingX += motion.outX
-        pendingY += motion.outY
+        synchronized(lock) {
+            pendX += motion.outX
+            pendY += motion.outY
+        }
     }
 
     val connected: Boolean get() = transport.state.value == ConnectionState.Connected
@@ -79,40 +100,84 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         val px = PX_PER_DETENT / scrollSpeed
         val v = scroll.add(dyPx, px)
         val h = panScroll.add(dxPx, px)
-        pendingWheel += sign * v
-        pendingPan -= sign * h
+        synchronized(lock) {
+            pendingWheel += sign * v
+            pendingPan -= sign * h
+        }
         return kotlin.math.abs(v) + kotlin.math.abs(h)
     }
 
-    /** Sends whatever has accumulated; returns true if a report went out. */
-    fun flushNow(): Boolean {
-        if (pendingX == 0 && pendingY == 0 && pendingWheel == 0 && pendingPan == 0) return false
-        // A report carries at most +-127 per axis; send the remainder in follow-up reports.
-        while (pendingX != 0 || pendingY != 0 || pendingWheel != 0 || pendingPan != 0) {
-            val x = pendingX.coerceIn(-127, 127)
-            val y = pendingY.coerceIn(-127, 127)
-            val w = pendingWheel.coerceIn(-127, 127)
-            val p = pendingPan.coerceIn(-127, 127)
-            HidReports.mouse(mouseBuf, buttons, x, y, w, p)
+    /** One sender step: release a fraction of the queued movement (exponential catch-up), scroll goes out whole. */
+    private fun tick() {
+        synchronized(lock) {
+            val a = SMOOTH_A
+            val tx = pendX * a
+            val ty = pendY * a
+            pendX -= tx
+            pendY -= ty
+            carryX += tx
+            carryY += ty
+            val x = carryX.toInt()
+            val y = carryY.toInt()
+            carryX -= x
+            carryY -= y
+            sendLocked(x, y, pendingWheel, pendingPan)
+            pendingWheel = 0
+            pendingPan = 0
+        }
+    }
+
+    /** Sends everything that is queued right now; returns true if a report went out. */
+    fun flushNow(): Boolean = synchronized(lock) {
+        val x = (pendX + carryX).roundToInt()
+        val y = (pendY + carryY).roundToInt()
+        pendX = 0f
+        pendY = 0f
+        carryX = 0f
+        carryY = 0f
+        val w = pendingWheel
+        val p = pendingPan
+        pendingWheel = 0
+        pendingPan = 0
+        sendLocked(x, y, w, p)
+    }
+
+    /** Sends a movement, split into follow-up reports because one report carries at most +-127 per axis. */
+    private fun sendLocked(dx: Int, dy: Int, wheel: Int, pan: Int): Boolean {
+        if (dx == 0 && dy == 0 && wheel == 0 && pan == 0) return false
+        var x = dx
+        var y = dy
+        var w = wheel
+        var p = pan
+        while (x != 0 || y != 0 || w != 0 || p != 0) {
+            val sx = x.coerceIn(-127, 127)
+            val sy = y.coerceIn(-127, 127)
+            val sw = w.coerceIn(-127, 127)
+            val sp = p.coerceIn(-127, 127)
+            HidReports.mouse(mouseBuf, buttons, sx, sy, sw, sp)
             transport.sendMouse(mouseBuf)
-            pendingX -= x
-            pendingY -= y
-            pendingWheel -= w
-            pendingPan -= p
+            x -= sx
+            y -= sy
+            w -= sw
+            p -= sp
         }
         return true
     }
 
     fun buttonDown(mask: Int) {
         flushNow()
-        buttons = buttons or mask
-        sendButtons()
+        synchronized(lock) {
+            buttons = buttons or mask
+            sendButtons()
+        }
     }
 
     fun buttonUp(mask: Int) {
         flushNow()
-        buttons = buttons and mask.inv()
-        sendButtons()
+        synchronized(lock) {
+            buttons = buttons and mask.inv()
+            sendButtons()
+        }
     }
 
     fun click(mask: Int) {
@@ -123,6 +188,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         }
     }
 
+    /** Caller holds [lock]. */
     private fun sendButtons() {
         HidReports.mouse(mouseBuf, buttons, 0, 0)
         transport.sendMouse(mouseBuf)
@@ -204,7 +270,9 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     }
 
     private companion object {
-        const val FLUSH_MS = 8L // ~125 Hz
+        const val TICK_US = 4_000L // 250 Hz
+        /** Share of the queued movement released per tick: 1 - e^(-4ms / 9ms), a ~9 ms catch-up. */
+        val SMOOTH_A = (1.0 - exp(-4.0 / 9.0)).toFloat()
         const val CLICK_MS = 40L
         const val KEY_MS = 15L
         const val ROAM_MIN = 250.0
