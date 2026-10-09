@@ -141,4 +141,17 @@ class HidTest {
         e.buttonUp(HidReports.BUTTON_LEFT)
         assertEquals(0.toByte(), t.mouse.last()[0])
     }
+
+    @Test
+    fun roamPathSumsToTheTargetAndStaysWithinOneReport() {
+        val path = com.yashraj.glidr.input.NudgePath.roam(Math.PI / 3, 600.0, 27)
+        assertEquals(27, path.size)
+        val sx = path.sumOf { it[0] }
+        val sy = path.sumOf { it[1] }
+        assertEquals(300, sx)
+        assertEquals(520, sy)
+        assertTrue(path.all { kotlin.math.abs(it[0]) <= 127 && kotlin.math.abs(it[1]) <= 127 })
+        // Eases in and out: the middle step is bigger than the first.
+        assertTrue(kotlin.math.abs(path[13][1]) > kotlin.math.abs(path[0][1]))
+    }
 }

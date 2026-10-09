@@ -75,6 +75,12 @@ fun SettingsScreen(s: Settings, update: ((Settings) -> Settings) -> Unit, onForg
                 if (s.keepAwakeEnabled) {
                     SwitchRow(stringResource(R.string.pause_touching), stringResource(R.string.pause_touching_sub), s.pauseWhileTouching) { v -> update { it.copy(pauseWhileTouching = v) } }
                     Pad {
+                        Label(stringResource(R.string.nudge_style), color = c.text, style = Glidr.type.body)
+                        Label(stringResource(R.string.nudge_style_sub), color = c.dim, style = Glidr.type.small)
+                        Box(Modifier.height(10.dp))
+                        Segmented(listOf(stringResource(R.string.nudge_subtle), stringResource(R.string.nudge_roam)), if (s.nudgeRoam) 1 else 0, { v -> update { it.copy(nudgeRoam = v == 1) } })
+                    }
+                    Pad {
                         Label(stringResource(R.string.nudge_every), color = c.text, style = Glidr.type.body)
                         Box(Modifier.height(10.dp))
                         Segmented(listOf("15 s", "30 s", "1 min", "2 min"), s.nudgeEvery, { v -> update { it.copy(nudgeEvery = v) } })

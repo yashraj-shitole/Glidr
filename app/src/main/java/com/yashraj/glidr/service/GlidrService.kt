@@ -48,7 +48,7 @@ class GlidrService : Service() {
             ACTION_AWAKE_STOP -> stopAwake()
             ACTION_PAUSE -> app.keepAwake.update { it.copy(paused = !it.paused) }
             ACTION_NUDGE -> {
-                app.engine.nudge()
+                app.scope.launch { app.engine.nudge(app.settings.flow.first().nudgeRoam) }
                 app.keepAwake.update { it.copy(nextInSec = everySec) }
             }
             else -> {
@@ -107,7 +107,7 @@ class GlidrService : Service() {
                         if (blocked) {
                             next = 1 // retry shortly, never mid-gesture
                         } else {
-                            if (app.transport.state.value == ConnectionState.Connected) app.engine.nudge()
+                            if (app.transport.state.value == ConnectionState.Connected) app.engine.nudge(cfg.nudgeRoam)
                             next = everySec
                         }
                     }

@@ -1,6 +1,8 @@
 package com.yashraj.glidr.hid
 
 import com.yashraj.glidr.input.MotionPipeline
+import com.yashraj.glidr.input.NudgePath
+import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -26,6 +28,8 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     private val keyBuf = ByteArray(HidDescriptor.KEYBOARD_SIZE)
     private val consumerBuf = ByteArray(HidDescriptor.CONSUMER_SIZE)
 
+    private val nudgeBuf = ByteArray(HidDescriptor.MOUSE_SIZE)
+    private val nudgeLock = Mutex()
     private val keyLock = Mutex()
     private val consumerLock = Mutex()
 
@@ -124,14 +128,31 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         transport.sendMouse(mouseBuf)
     }
 
-    /** A tiny relative move and back, used by keep awake. */
-    fun nudge() {
-        HidReports.mouse(mouseBuf, buttons, NUDGE_PX, 0)
-        transport.sendMouse(mouseBuf)
+    /**
+     * Keep awake nudge. Subtle: a tiny move and back. Roam: glide the cursor a few hundred counts in a random
+     * direction and leave it there, so over time it wanders to different places on the screen. A Bluetooth mouse
+     * is relative-only, so exact screen positions are not possible.
+     */
+    fun nudge(roam: Boolean = false) {
         scope.launch {
-            delay(NUDGE_BACK_MS)
-            HidReports.mouse(mouseBuf, buttons, -NUDGE_PX, 0)
-            transport.sendMouse(mouseBuf)
+            nudgeLock.withLock {
+                if (!roam) {
+                    HidReports.mouse(nudgeBuf, buttons, NUDGE_PX, 0)
+                    transport.sendMouse(nudgeBuf)
+                    delay(NUDGE_BACK_MS)
+                    HidReports.mouse(nudgeBuf, buttons, -NUDGE_PX, 0)
+                    transport.sendMouse(nudgeBuf)
+                    return@withLock
+                }
+                val angle = Random.nextDouble(0.0, 2 * Math.PI)
+                val distance = Random.nextDouble(ROAM_MIN, ROAM_MAX)
+                val steps = (distance / ROAM_STEP).toInt().coerceAtLeast(10)
+                for (d in NudgePath.roam(angle, distance, steps)) {
+                    HidReports.mouse(nudgeBuf, buttons, d[0], d[1])
+                    transport.sendMouse(nudgeBuf)
+                    delay(ROAM_FRAME_MS)
+                }
+            }
         }
     }
 
@@ -186,6 +207,10 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         const val FLUSH_MS = 8L // ~125 Hz
         const val CLICK_MS = 40L
         const val KEY_MS = 15L
+        const val ROAM_MIN = 250.0
+        const val ROAM_MAX = 800.0
+        const val ROAM_STEP = 22.0
+        const val ROAM_FRAME_MS = 8L
         const val NUDGE_PX = 3
         const val NUDGE_BACK_MS = 30L
         const val PX_PER_DETENT = 28f

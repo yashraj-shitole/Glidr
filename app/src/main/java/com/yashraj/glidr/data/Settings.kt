@@ -32,6 +32,7 @@ data class Settings(
     val hapticScroll: Boolean = true,
     val hapticKeys: Boolean = true,
     val autoReconnect: Boolean = true,
+    val nudgeRoam: Boolean = true,
     val lastHost: String? = null,
 ) {
     companion object {
@@ -60,6 +61,7 @@ class SettingsRepository(private val context: Context) {
         val hapticScroll = booleanPreferencesKey("hap_scroll")
         val hapticKeys = booleanPreferencesKey("hap_keys")
         val autoReconnect = booleanPreferencesKey("auto_reconnect")
+        val nudgeRoam = booleanPreferencesKey("nudge_roam")
         val host = stringPreferencesKey("host")
     }
 
@@ -86,6 +88,7 @@ class SettingsRepository(private val context: Context) {
             hapticScroll = p[K.hapticScroll] ?: d.hapticScroll,
             hapticKeys = p[K.hapticKeys] ?: d.hapticKeys,
             autoReconnect = p[K.autoReconnect] ?: d.autoReconnect,
+            nudgeRoam = p[K.nudgeRoam] ?: d.nudgeRoam,
             lastHost = p[K.host],
         )
     }
@@ -111,6 +114,7 @@ class SettingsRepository(private val context: Context) {
             p[K.hapticScroll] = s.hapticScroll
             p[K.hapticKeys] = s.hapticKeys
             p[K.autoReconnect] = s.autoReconnect
+            p[K.nudgeRoam] = s.nudgeRoam
             val h = s.lastHost
             if (h == null) p.remove(K.host) else p[K.host] = h
         }
