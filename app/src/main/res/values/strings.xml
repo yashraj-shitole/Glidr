@@ -111,4 +111,11 @@
     <string name="hap_keys_sub">Crisp tap on every key</string>
     <string name="curve_slow">Slow · precise</string>
     <string name="curve_fast">Fast · far</string>
+
+    <string name="nothing_playing">Nothing is playing</string>
+    <string name="nothing_playing_sub">Start something on your PC and it shows up here.</string>
+    <string name="companion_missing">Live preview needs Glidr for Windows</string>
+    <string name="companion_missing_sub">Run the Glidr companion on your PC. It sends what is playing over Bluetooth, no internet needed.</string>
+    <string name="cover_art">Cover art</string>
+    <string name="unknown_title">Unknown title</string>
 </resources>

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GlidrCompanion</AssemblyName>
+    <RootNamespace>GlidrCompanion</RootNamespace>
+    <ApplicationIcon>Assets\glidr.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Product>Glidr Companion</Product>
+    <Company>Glidr</Company>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\glidr-256.png" LogicalName="glidr.png" />
+  </ItemGroup>
+
+</Project>

@@ -22,6 +22,8 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
     val connection = app.transport.state
     val host = app.transport.host
     val keepAwake = app.keepAwake.state
+    val nowPlaying = app.companion.nowPlaying
+    val companionState = app.companion.state
 
     val settings: StateFlow<Settings> = app.settings.flow
         .stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
@@ -42,7 +44,10 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { app.settings.update(block) }
     }
 
-    fun startTransport() = app.transport.start()
+    fun startTransport() {
+        app.transport.start()
+        app.companion.start()
+    }
     fun retryTransport() = app.transport.retry()
     fun bondedHosts(): List<PcDevice> = app.transport.bondedHosts()
 

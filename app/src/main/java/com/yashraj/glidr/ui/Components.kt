@@ -78,8 +78,8 @@ fun PressBox(
 }
 
 @Composable
-fun Label(text: String, modifier: Modifier = Modifier, color: Color = Glidr.colors.text, style: TextStyle = Glidr.type.label) {
-    BasicText(text, modifier, style = style.copy(color = color))
+fun Label(text: String, modifier: Modifier = Modifier, color: Color = Glidr.colors.text, style: TextStyle = Glidr.type.label, maxLines: Int = Int.MAX_VALUE) {
+    BasicText(text, modifier, style = style.copy(color = color), maxLines = maxLines, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
 }
 
 enum class Ico { Mic, Settings, Awake, Keyboard, Back, Down, Pad, Media, Play, Pause, Prev, Next, Stop, Mute, VolUp, VolDown }

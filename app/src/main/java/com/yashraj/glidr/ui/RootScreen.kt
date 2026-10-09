@@ -61,6 +61,8 @@ fun RootScreen(
     val conn by vm.connection.collectAsStateWithLifecycle()
     val host by vm.host.collectAsStateWithLifecycle()
     val awake by vm.keepAwake.collectAsStateWithLifecycle()
+    val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
+    val companion by vm.companionState.collectAsStateWithLifecycle()
     var page by rememberSaveable { mutableIntStateOf(Page.Pad.ordinal) }
     var kb by rememberSaveable { mutableStateOf(false) }
     var devices by remember { mutableStateOf<List<PcDevice>?>(null) }
@@ -103,7 +105,7 @@ fun RootScreen(
                             MouseButtons(vm.engine, s)
                         }
                     } else {
-                        MediaScreen(vm.engine, s.haptics)
+                        MediaScreen(vm.engine, s.haptics, nowPlaying, companion)
                     }
                 }
                 AnimatedVisibility(kb && page == Page.Pad.ordinal) { KeyboardSheet(vm.engine, s, vm.stt, hasMic, onRequestMic) }
