@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 enum class ConnectionState { Unsupported, BluetoothOff, Registering, Ready, Connecting, Connected, Reconnecting }
 
-data class PcDevice(val name: String, val address: String)
+data class PcDevice(val name: String, val address: String, val isComputer: Boolean = true)
 
 /** All HID access goes through this interface so the engine is testable and other transports can be added. */
 interface HidTransport {

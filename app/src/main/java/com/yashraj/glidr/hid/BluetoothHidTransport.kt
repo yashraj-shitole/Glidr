@@ -2,6 +2,7 @@ package com.yashraj.glidr.hid
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothHidDevice
 import android.bluetooth.BluetoothHidDeviceAppSdpSettings
@@ -13,6 +14,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +44,10 @@ class BluetoothHidTransport(context: Context) : HidTransport {
     private val _host = MutableStateFlow<PcDevice?>(null)
     override val host: StateFlow<PcDevice?> = _host.asStateFlow()
 
+    private val main = Handler(Looper.getMainLooper())
+    private var registerTries = 0
+    private var connectTries = 0
+
     private var hid: BluetoothHidDevice? = null
     private var connected: BluetoothDevice? = null
     private var registered = false
@@ -52,6 +59,7 @@ class BluetoothHidTransport(context: Context) : HidTransport {
             this@BluetoothHidTransport.registered = registered
             Log.d(TAG, "app registered=$registered")
             if (registered) {
+                registerTries = 0
                 _state.value = ConnectionState.Ready
                 wantConnected?.let { hid?.connect(it) }
             } else if (started) {
@@ -64,16 +72,30 @@ class BluetoothHidTransport(context: Context) : HidTransport {
             when (state) {
                 BluetoothProfile.STATE_CONNECTING -> _state.value = ConnectionState.Connecting
                 BluetoothProfile.STATE_CONNECTED -> {
+                    connectTries = 0
                     connected = device
                     _host.value = PcDevice(safeName(device), device.address)
                     _state.value = ConnectionState.Connected
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     if (connected?.address == device.address) connected = null
-                    _state.value = when {
-                        !started || !registered -> ConnectionState.Registering
-                        wantConnected != null -> ConnectionState.Reconnecting
-                        else -> ConnectionState.Ready
+                    _host.value = null
+                    if (!started || !registered) {
+                        _state.value = ConnectionState.Registering
+                    } else if (wantConnected != null && connectTries < MAX_CONNECT_TRIES) {
+                        // The PC did not accept (or dropped) the link: retry a few times, then give up quietly.
+                        connectTries++
+                        _state.value = ConnectionState.Reconnecting
+                        val d = wantConnected
+                        main.postDelayed({
+                            if (started && registered && wantConnected === d && connected == null) {
+                                d?.let { hid?.connect(it) }
+                            }
+                        }, RETRY_DELAY_MS * connectTries)
+                    } else {
+                        wantConnected = null
+                        connectTries = 0
+                        _state.value = ConnectionState.Ready
                     }
                 }
             }
@@ -83,6 +105,7 @@ class BluetoothHidTransport(context: Context) : HidTransport {
     private val proxyListener = object : BluetoothProfile.ServiceListener {
         override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
             if (profile != BluetoothProfile.HID_DEVICE) return
+            Log.d(TAG, "HID_DEVICE proxy connected")
             val h = proxy as BluetoothHidDevice
             hid = h
             val sdp = BluetoothHidDeviceAppSdpSettings(
@@ -90,7 +113,8 @@ class BluetoothHidTransport(context: Context) : HidTransport {
                 BluetoothHidDevice.SUBCLASS1_COMBO, HidDescriptor.BYTES,
             )
             _state.value = ConnectionState.Registering
-            h.registerApp(sdp, null, null, executor, callback)
+            val ok = h.registerApp(sdp, null, null, executor, callback)
+            Log.d(TAG, "registerApp returned $ok")
         }
 
         override fun onServiceDisconnected(profile: Int) {
@@ -126,6 +150,7 @@ class BluetoothHidTransport(context: Context) : HidTransport {
     }
 
     override fun start() {
+        Log.d(TAG, "start() state=${_state.value} started=$started")
         if (started || _state.value == ConnectionState.Unsupported) return
         started = true
         ContextCompat.registerReceiver(
@@ -142,10 +167,25 @@ class BluetoothHidTransport(context: Context) : HidTransport {
         }
         if (hid != null) return
         _state.value = ConnectionState.Registering
-        if (!a.getProfileProxy(app, proxyListener, BluetoothProfile.HID_DEVICE)) {
+        scheduleRegisterWatchdog()
+        val proxyOk = a.getProfileProxy(app, proxyListener, BluetoothProfile.HID_DEVICE)
+        Log.d(TAG, "getProfileProxy returned $proxyOk")
+        if (!proxyOk) {
             Log.d(TAG, "getProfileProxy failed")
             _state.value = ConnectionState.Unsupported
         }
+    }
+
+    /** If the profile never reports "registered" (some phones are slow or drop the proxy), start over. */
+    private fun scheduleRegisterWatchdog() {
+        main.postDelayed({
+            if (started && !registered && _state.value == ConnectionState.Registering && registerTries < MAX_REGISTER_TRIES) {
+                registerTries++
+                Log.d(TAG, "registration stalled, retry $registerTries")
+                tearDown()
+                openProxy()
+            }
+        }, REGISTER_TIMEOUT_MS)
     }
 
     private fun tearDown() {
@@ -164,6 +204,7 @@ class BluetoothHidTransport(context: Context) : HidTransport {
         if (!started) return
         started = false
         wantConnected = null
+        main.removeCallbacksAndMessages(null)
         try {
             app.unregisterReceiver(btReceiver)
         } catch (_: IllegalArgumentException) {
@@ -176,13 +217,24 @@ class BluetoothHidTransport(context: Context) : HidTransport {
 
     override fun bondedHosts(): List<PcDevice> {
         if (!hasPermission()) return emptyList()
-        return adapter?.bondedDevices.orEmpty().map { PcDevice(safeName(it), it.address) }
+        // Only things that can be a PC: computers, plus devices that do not say what they are.
+        // Headphones, controllers, watches and similar are hidden.
+        return adapter?.bondedDevices.orEmpty().filter { d ->
+            when (d.bluetoothClass?.majorDeviceClass) {
+                null, BluetoothClass.Device.Major.COMPUTER, BluetoothClass.Device.Major.UNCATEGORIZED,
+                BluetoothClass.Device.Major.MISC, BluetoothClass.Device.Major.PHONE -> true
+                else -> false
+            }
+        }.map {
+            PcDevice(safeName(it), it.address, it.bluetoothClass?.majorDeviceClass == BluetoothClass.Device.Major.COMPUTER)
+        }.sortedByDescending { it.isComputer }
     }
 
     override fun connect(device: PcDevice) {
         if (!hasPermission()) return
         val d = adapter?.getRemoteDevice(device.address) ?: return
         wantConnected = d
+        connectTries = 0
         if (registered) hid?.connect(d)
     }
 
@@ -206,5 +258,9 @@ class BluetoothHidTransport(context: Context) : HidTransport {
 
     private companion object {
         const val TAG = "Glidr"
+        const val REGISTER_TIMEOUT_MS = 5_000L
+        const val MAX_REGISTER_TRIES = 3
+        const val MAX_CONNECT_TRIES = 3
+        const val RETRY_DELAY_MS = 2_500L
     }
 }

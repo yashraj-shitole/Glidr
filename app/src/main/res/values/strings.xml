@@ -10,7 +10,7 @@
     <string name="state_reconnecting">Reconnecting…</string>
     <string name="connection_status">Connection: %1$s. Tap to choose a PC</string>
     <string name="choose_pc">Choose a PC</string>
-    <string name="pair_help">Pair your phone with the PC in Windows first (Settings, Bluetooth &amp; devices, Add device). Then pick the PC here.</string>
+    <string name="pair_help">First time: keep Glidr open, tap Make phone discoverable, then on Windows go to Settings, Bluetooth &amp; devices, Add device, Bluetooth and pick this phone. If Windows already knows this phone, remove it there first, then pair again.</string>
     <string name="no_paired">No paired devices yet.</string>
     <string name="connected">Connected</string>
     <string name="make_discoverable">Make phone discoverable</string>

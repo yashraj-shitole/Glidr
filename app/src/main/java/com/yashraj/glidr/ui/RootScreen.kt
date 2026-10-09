@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -193,11 +196,13 @@ private fun DeviceSheet(
             Label(stringResource(R.string.choose_pc), color = c.text, style = Glidr.type.title.copy(fontSize = androidx.compose.ui.unit.TextUnit(22f, androidx.compose.ui.unit.TextUnitType.Sp)))
             Label(stringResource(R.string.pair_help), color = c.dim, style = Glidr.type.small)
             if (list.isEmpty()) Label(stringResource(R.string.no_paired), color = c.dim, style = Glidr.type.body)
-            for (d in list) {
-                PressBox({ onPick(d) }, Modifier.fillMaxWidth().height(56.dp), d.name) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Label(d.name, color = c.text, style = Glidr.type.body)
-                        if (d.address == connected && state == ConnectionState.Connected) Label(stringResource(R.string.connected), color = c.accentText, style = Glidr.type.small)
+            Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                for (d in list) {
+                    PressBox({ onPick(d) }, Modifier.fillMaxWidth().height(56.dp), d.name) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Label(d.name, color = c.text, style = Glidr.type.body)
+                            if (d.address == connected && state == ConnectionState.Connected) Label(stringResource(R.string.connected), color = c.accentText, style = Glidr.type.small)
+                        }
                     }
                 }
             }
