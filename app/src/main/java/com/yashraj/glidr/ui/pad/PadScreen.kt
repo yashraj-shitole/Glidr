@@ -58,6 +58,7 @@ import com.yashraj.glidr.hid.Keys
 import com.yashraj.glidr.ui.Haptic
 import com.yashraj.glidr.ui.Haptics
 import com.yashraj.glidr.ui.Label
+import com.yashraj.glidr.ui.dialTicks
 import com.yashraj.glidr.ui.PressBox
 import com.yashraj.glidr.ui.theme.Glidr
 import kotlinx.coroutines.launch
@@ -289,16 +290,7 @@ private fun ScrollStrip(engine: HidEngine, settings: Settings, onTouch: (Boolean
         Box(
             Modifier.width(30.dp).fillMaxHeight().graphicsLayer { scaleX = widen }
                 .clip(shape).background(c.s2).border(1.dp, borderColor, shape)
-                .drawBehind {
-                    val step = 12.dp.toPx()
-                    val len = 10.dp.toPx()
-                    val x0 = (size.width - len) / 2f
-                    var y = ((offset % step) + step) % step
-                    while (y < size.height) {
-                        drawLine(c.dim, Offset(x0, y), Offset(x0 + len, y), strokeWidth = 1.5.dp.toPx())
-                        y += step
-                    }
-                },
+                .drawBehind { dialTicks(true, offset, c.dim, 12.dp.toPx(), 12.dp.toPx(), 1.5.dp.toPx()) },
         )
     }
 }

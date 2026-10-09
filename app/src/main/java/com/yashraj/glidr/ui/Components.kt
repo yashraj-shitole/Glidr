@@ -6,6 +6,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import kotlin.math.sin
+import kotlin.math.cos
+import kotlin.math.ceil
+import kotlin.math.abs
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -199,5 +204,36 @@ fun Slider(value: Float, range: ClosedFloatingPointRange<Float>, onChange: (Floa
                 Box(Modifier.padding(start = ((maxWidth - 28.dp) * frac)).size(28.dp).clip(CircleShape).background(c.text))
             }
         }
+    }
+}
+
+/**
+ * Draws ticks as if they were on a rotating drum: spacing bunches up and ticks fade and shorten towards both ends,
+ * so a strip reads as a dial. [offset] is how far the drum has been turned (px along the strip).
+ */
+fun DrawScope.dialTicks(vertical: Boolean, offset: Float, color: Color, tickLen: Float, step: Float, stroke: Float) {
+    val length = if (vertical) size.height else size.width
+    val cross = if (vertical) size.width else size.height
+    val half = length / 2f
+    val thetaMax = 1.45f
+    val radius = half / thetaMax
+    val norm = sin(thetaMax)
+    var u = ((offset % step) + step) % step - ceil(half / step) * step
+    while (u <= half) {
+        val theta = u / radius
+        if (abs(theta) < thetaMax) {
+            val c = cos(theta)
+            val pos = half + half * (sin(theta) / norm)
+            val a = (c * c).coerceIn(0f, 1f)
+            val len = tickLen * (0.4f + 0.6f * c)
+            val from = (cross - len) / 2f
+            val tint = color.copy(alpha = color.alpha * a)
+            if (vertical) {
+                drawLine(tint, Offset(from, pos), Offset(from + len, pos), strokeWidth = stroke)
+            } else {
+                drawLine(tint, Offset(pos, from), Offset(pos, from + len), strokeWidth = stroke)
+            }
+        }
+        u += step
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Windows.Foundation.Collections;
 using Windows.Graphics.Imaging;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
@@ -111,7 +112,7 @@ sealed class MediaWatcher : IDisposable
             string? art = null;
             if (forceArt || key != _lastKey)
             {
-                _lastArt = await ReadArtAsync(props);
+                _lastArt = await ReadArtAsync(props, title, artist);
                 _lastKey = key;
                 art = _lastArt;
             }
@@ -140,41 +141,77 @@ sealed class MediaWatcher : IDisposable
         }
     }
 
-    /// <summary>Cover art scaled to at most 240px on the long side, as base64 JPEG (a few KB).</summary>
-    static async Task<string?> ReadArtAsync(GlobalSystemMediaTransportControlsSessionMediaProperties props)
+    /// <summary>
+    /// Cover art as base64 JPEG at up to 1280px on the long side (never scaled up), high quality. Windows gives
+    /// browsers only ~120px, so for YouTube the real thumbnail is fetched instead (see <see cref="HighResArt"/>).
+    /// </summary>
+    async Task<string?> ReadArtAsync(GlobalSystemMediaTransportControlsSessionMediaProperties props, string title, string artist)
     {
         try
         {
-            if (props.Thumbnail == null) return null;
-            using var source = await props.Thumbnail.OpenReadAsync();
-            var decoder = await BitmapDecoder.CreateAsync(source);
-            var scale = Math.Min(1.0, 240.0 / Math.Max(decoder.PixelWidth, decoder.PixelHeight));
-            var transform = new BitmapTransform
+            string? small = null;
+            var smallPx = 0u;
+            if (props.Thumbnail != null)
             {
-                ScaledWidth = Math.Max(1u, (uint)(decoder.PixelWidth * scale)),
-                ScaledHeight = Math.Max(1u, (uint)(decoder.PixelHeight * scale)),
-                InterpolationMode = BitmapInterpolationMode.Fant,
-            };
-            var pixels = await decoder.GetPixelDataAsync(
-                BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore, transform,
-                ExifOrientationMode.RespectExifOrientation, ColorManagementMode.DoNotColorManage);
+                using var source = await props.Thumbnail.OpenReadAsync();
+                var decoder = await BitmapDecoder.CreateAsync(source);
+                smallPx = Math.Max(decoder.PixelWidth, decoder.PixelHeight);
+                Log.Write($"cover art source {decoder.PixelWidth}x{decoder.PixelHeight}");
+                small = await EncodeAsync(decoder);
+            }
+            if (smallPx >= 480) return small;
 
-            using var output = new InMemoryRandomAccessStream();
-            var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, output);
-            encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore, transform.ScaledWidth, transform.ScaledHeight, 96, 96, pixels.DetachPixelData());
-            await encoder.FlushAsync();
-
-            var bytes = new byte[output.Size];
-            using var reader = new DataReader(output.GetInputStreamAt(0));
-            await reader.LoadAsync((uint)output.Size);
-            reader.ReadBytes(bytes);
-            return Convert.ToBase64String(bytes);
+            var hq = await HighResArt.FindAsync(title, artist);
+            if (hq != null)
+            {
+                using var mem = new InMemoryRandomAccessStream();
+                using (var w = new DataWriter(mem.GetOutputStreamAt(0)))
+                {
+                    w.WriteBytes(hq);
+                    await w.StoreAsync();
+                    w.DetachStream();
+                }
+                mem.Seek(0);
+                var decoder = await BitmapDecoder.CreateAsync(mem);
+                return await EncodeAsync(decoder);
+            }
+            return small;
         }
         catch (Exception e)
         {
             Log.Write($"cover art failed: {e.Message}");
             return null;
         }
+    }
+
+    static async Task<string> EncodeAsync(BitmapDecoder decoder)
+    {
+        var scale = Math.Min(1.0, 1280.0 / Math.Max(decoder.PixelWidth, decoder.PixelHeight));
+        var transform = new BitmapTransform
+        {
+            ScaledWidth = Math.Max(1u, (uint)(decoder.PixelWidth * scale)),
+            ScaledHeight = Math.Max(1u, (uint)(decoder.PixelHeight * scale)),
+            InterpolationMode = BitmapInterpolationMode.Fant,
+        };
+        var pixels = await decoder.GetPixelDataAsync(
+            BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore, transform,
+            ExifOrientationMode.RespectExifOrientation, ColorManagementMode.DoNotColorManage);
+
+        using var output = new InMemoryRandomAccessStream();
+        var quality = new BitmapPropertySet
+        {
+            { "ImageQuality", new BitmapTypedValue(0.95f, Windows.Foundation.PropertyType.Single) },
+        };
+        var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, output, quality);
+        encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore, transform.ScaledWidth, transform.ScaledHeight, 96, 96, pixels.DetachPixelData());
+        await encoder.FlushAsync();
+
+        var bytes = new byte[output.Size];
+        using var reader = new DataReader(output.GetInputStreamAt(0));
+        await reader.LoadAsync((uint)output.Size);
+        reader.ReadBytes(bytes);
+        Log.Write($"cover art sent {transform.ScaledWidth}x{transform.ScaledHeight}, {bytes.Length / 1024} KB");
+        return Convert.ToBase64String(bytes);
     }
 
     /// <summary>"Spotify.exe" or "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic" to a readable name.</summary>

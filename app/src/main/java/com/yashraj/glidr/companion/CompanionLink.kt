@@ -210,7 +210,7 @@ class CompanionLink(context: Context, private val scope: CoroutineScope) {
         val SERVICE_UUID: UUID = UUID.fromString("7b2f3c10-6a1e-4c8e-9d52-2f6b1a9c4e01")
         private const val TAG = "Glidr"
         private const val RETRY_MS = 3_000L
-        private const val MAX_LINE = 400_000
-        private const val MAX_ART_PX = 512
+        private const val MAX_LINE = 3_000_000
+        private const val MAX_ART_PX = 1600
     }
 }

@@ -6,6 +6,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Turns gestures and key presses into HID reports on a [HidTransport]. Mouse movement is batched
@@ -23,6 +25,9 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     private val mouseBuf = ByteArray(HidDescriptor.MOUSE_SIZE)
     private val keyBuf = ByteArray(HidDescriptor.KEYBOARD_SIZE)
     private val consumerBuf = ByteArray(HidDescriptor.CONSUMER_SIZE)
+
+    private val keyLock = Mutex()
+    private val consumerLock = Mutex()
 
     private var buttons = 0
     private var pendingX = 0
@@ -131,21 +136,9 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     }
 
     fun pressKey(usage: Int, modifiers: Int = 0) {
-        HidReports.keyboard(keyBuf, modifiers, usage)
-        transport.sendKeyboard(keyBuf)
         scope.launch {
-            delay(KEY_MS)
-            HidReports.keyboard(keyBuf, 0)
-            transport.sendKeyboard(keyBuf)
-        }
-    }
-
-    /** Types [text] through the current layout. Characters the layout cannot produce are skipped. */
-    fun typeText(text: String) {
-        scope.launch {
-            for (c in text) {
-                val stroke = layout.strokeFor(c) ?: continue
-                HidReports.keyboard(keyBuf, stroke.modifiers, stroke.usage)
+            keyLock.withLock {
+                HidReports.keyboard(keyBuf, modifiers, usage)
                 transport.sendKeyboard(keyBuf)
                 delay(KEY_MS)
                 HidReports.keyboard(keyBuf, 0)
@@ -155,16 +148,37 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         }
     }
 
+    /** Types [text] through the current layout. Characters the layout cannot produce are skipped. */
+    fun typeText(text: String) {
+        scope.launch {
+            keyLock.withLock {
+                for (c in text) {
+                    val stroke = layout.strokeFor(c) ?: continue
+                    HidReports.keyboard(keyBuf, stroke.modifiers, stroke.usage)
+                    transport.sendKeyboard(keyBuf)
+                    delay(KEY_MS)
+                    HidReports.keyboard(keyBuf, 0)
+                    transport.sendKeyboard(keyBuf)
+                    delay(KEY_MS)
+                }
+            }
+        }
+    }
+
     /** Characters in [text] that [layout] cannot type. */
     fun layoutUnsupported(text: String): String = text.filter { layout.strokeFor(it) == null }
 
+    /** Presses and releases a media key. Calls queue up, so several volume steps in a row all register. */
     fun consumer(usage: Int) {
-        HidReports.consumer(consumerBuf, usage)
-        transport.sendConsumer(consumerBuf)
         scope.launch {
-            delay(KEY_MS)
-            HidReports.consumer(consumerBuf, 0)
-            transport.sendConsumer(consumerBuf)
+            consumerLock.withLock {
+                HidReports.consumer(consumerBuf, usage)
+                transport.sendConsumer(consumerBuf)
+                delay(KEY_MS)
+                HidReports.consumer(consumerBuf, 0)
+                transport.sendConsumer(consumerBuf)
+                delay(KEY_MS)
+            }
         }
     }
 

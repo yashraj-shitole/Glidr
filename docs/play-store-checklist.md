@@ -26,6 +26,12 @@ What the code already satisfies, and what only you can do in Play Console.
 9. **Launcher icon**: done (your glidr-icon set: adaptive and monochrome vectors). The 512px store icon is `docs/store/glidr-play-store-512.png`.
 10. **Pre-launch report / internal testing track** first, then closed testing (new personal developer accounts need 12 testers for 14 days before production).
 
+## Companion app
+The Windows companion (`windows/`) is optional and separate from the Play listing; host the .exe yourself (for example a
+GitHub release) and link to it in the description. The phone app only listens on a Bluetooth serial service for devices
+already paired with it, so the Data safety answers do not change. The companion looks up cover art online (track title
+and artist only, switchable in its tray menu); say so in its page and your privacy policy.
+
 ## Known limits to state in the listing
 - Windows caches the HID descriptor at pairing; after an app update that changes it, forget the phone in Windows and pair again.
 - Typing sends key codes through the layout chosen in Settings (US, UK, DE); Unicode text such as Devanagari cannot be typed over plain HID.

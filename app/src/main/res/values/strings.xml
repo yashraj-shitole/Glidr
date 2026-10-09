@@ -118,4 +118,5 @@
     <string name="companion_missing_sub">Run the Glidr companion on your PC. It sends what is playing over Bluetooth, no internet needed.</string>
     <string name="cover_art">Cover art</string>
     <string name="unknown_title">Unknown title</string>
+    <string name="volume_strip">Volume. Drag right to raise, left to lower</string>
 </resources>

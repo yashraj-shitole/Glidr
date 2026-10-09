@@ -32,13 +32,15 @@ sealed class TrayContext : ApplicationContext
         _status = new ToolStripMenuItem("Starting…") { Enabled = false };
         _startup = new ToolStripMenuItem("Start with Windows") { CheckOnClick = true, Checked = IsStartupEnabled() };
         _startup.CheckedChanged += (_, _) => SetStartup(_startup.Checked);
+        var hq = new ToolStripMenuItem("High-quality cover art (looks up thumbnails online)") { CheckOnClick = true, Checked = HighResArt.Enabled };
+        hq.CheckedChanged += (_, _) => HighResArt.Enabled = hq.Checked;
         var openLog = new ToolStripMenuItem("Open log");
         openLog.Click += (_, _) => OpenLog();
         var quit = new ToolStripMenuItem("Quit Glidr Companion");
         quit.Click += (_, _) => ExitThread();
 
         var menu = new ContextMenuStrip();
-        menu.Items.AddRange(new ToolStripItem[] { _status, new ToolStripSeparator(), _startup, openLog, quit });
+        menu.Items.AddRange(new ToolStripItem[] { _status, new ToolStripSeparator(), _startup, hq, openLog, quit });
 
         _tray = new NotifyIcon { Icon = LoadIcon(), Text = "Glidr Companion", ContextMenuStrip = menu, Visible = true };
 
