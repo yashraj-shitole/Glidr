@@ -29,6 +29,9 @@ data class Settings(
     val nudgeEvery: Int = 1, // index into [NUDGE_SECONDS]
     val autoStop: Int = 0, // index into [AUTO_STOP_MINUTES], 0 = never
     val pauseWhileTouching: Boolean = true,
+    val hapticScroll: Boolean = true,
+    val hapticKeys: Boolean = true,
+    val autoReconnect: Boolean = true,
     val lastHost: String? = null,
 ) {
     companion object {
@@ -54,12 +57,17 @@ class SettingsRepository(private val context: Context) {
         val every = intPreferencesKey("every")
         val stop = intPreferencesKey("stop")
         val pauseTouch = booleanPreferencesKey("pause_touch")
+        val hapticScroll = booleanPreferencesKey("hap_scroll")
+        val hapticKeys = booleanPreferencesKey("hap_keys")
+        val autoReconnect = booleanPreferencesKey("auto_reconnect")
         val host = stringPreferencesKey("host")
     }
 
-    val flow: Flow<Settings> = context.store.data.map { p ->
+    val flow: Flow<Settings> = context.store.data.map { map(it) }
+
+    private fun map(p: Preferences): Settings {
         val d = Settings()
-        Settings(
+        return Settings(
             sensitivity = p[K.sens] ?: d.sensitivity,
             acceleration = p[K.accel] ?: d.acceleration,
             scrollSpeed = p[K.scroll] ?: d.scrollSpeed,
@@ -75,6 +83,9 @@ class SettingsRepository(private val context: Context) {
             nudgeEvery = p[K.every] ?: d.nudgeEvery,
             autoStop = p[K.stop] ?: d.autoStop,
             pauseWhileTouching = p[K.pauseTouch] ?: d.pauseWhileTouching,
+            hapticScroll = p[K.hapticScroll] ?: d.hapticScroll,
+            hapticKeys = p[K.hapticKeys] ?: d.hapticKeys,
+            autoReconnect = p[K.autoReconnect] ?: d.autoReconnect,
             lastHost = p[K.host],
         )
     }
@@ -97,20 +108,13 @@ class SettingsRepository(private val context: Context) {
             p[K.every] = s.nudgeEvery
             p[K.stop] = s.autoStop
             p[K.pauseTouch] = s.pauseWhileTouching
+            p[K.hapticScroll] = s.hapticScroll
+            p[K.hapticKeys] = s.hapticKeys
+            p[K.autoReconnect] = s.autoReconnect
             val h = s.lastHost
             if (h == null) p.remove(K.host) else p[K.host] = h
         }
     }
 
-    private fun read(p: Preferences): Settings {
-        val d = Settings()
-        return Settings(
-            p[K.sens] ?: d.sensitivity, p[K.accel] ?: d.acceleration, p[K.scroll] ?: d.scrollSpeed,
-            p[K.natural] ?: d.naturalScroll, p[K.tap] ?: d.tapToClick, p[K.left] ?: d.leftHanded,
-            p[K.layout] ?: d.layoutId, p[K.light] ?: d.lightTheme, p[K.accent] ?: d.accent,
-            p[K.haptics] ?: d.haptics, p[K.reduce] ?: d.reduceMotion, p[K.ka] ?: d.keepAwakeEnabled,
-            p[K.every] ?: d.nudgeEvery, p[K.stop] ?: d.autoStop, p[K.pauseTouch] ?: d.pauseWhileTouching,
-            p[K.host],
-        )
-    }
+    private fun read(p: Preferences): Settings = map(p)
 }

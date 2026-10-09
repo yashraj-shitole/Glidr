@@ -73,7 +73,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
             .clip(RoundedCornerShape(32.dp))
             .background(c.s1)
             .border(1.dp, c.line, RoundedCornerShape(32.dp))
-            .pointerInput(settings.tapToClick, level) {
+            .pointerInput(settings.tapToClick, level, settings.hapticScroll) {
                 awaitEachGesture {
                     val first = awaitFirstDown(requireUnconsumed = false)
                     onTouch(true)
@@ -108,7 +108,9 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                                     glow = down[0].position
                                     engine.move(dx, dy, System.nanoTime())
                                 }
-                                down.size == 2 && maxPointers == 2 -> engine.scrollBy(dx, dy)
+                                down.size == 2 && maxPointers == 2 -> {
+                                    if (engine.scrollBy(dx, dy) > 0 && settings.hapticScroll) haptics.play(Haptic.Tick, level)
+                                }
                                 down.size >= 3 -> {
                                     swipeX += dx
                                     swipeY += dy
@@ -182,12 +184,15 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
             Modifier.align(if (settings.leftHanded) Alignment.CenterStart else Alignment.CenterEnd)
                 .padding(horizontal = 6.dp).fillMaxHeight(0.6f).width(36.dp)
                 .clip(RoundedCornerShape(18.dp)).background(c.s2).border(1.dp, c.line, RoundedCornerShape(18.dp))
-                .pointerInput(level) {
+                .pointerInput(level, settings.hapticScroll) {
                     detectDragGestures(
                         onDragStart = { engine.touchStart(); onTouch(true) },
                         onDragEnd = { engine.touchEnd(); onTouch(false) },
                         onDragCancel = { engine.touchEnd(); onTouch(false) },
-                    ) { ch, drag -> ch.consume(); engine.scrollBy(0f, drag.y) }
+                    ) { ch, drag ->
+                        ch.consume()
+                        if (engine.scrollBy(0f, drag.y) > 0 && settings.hapticScroll) haptics.play(Haptic.Tick, level)
+                    }
                 },
         )
     }

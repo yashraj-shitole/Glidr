@@ -4,6 +4,7 @@
     <!-- Bluetooth HID Device needs a Bluetooth radio and a touchscreen. -->
     <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <!-- Legacy Bluetooth permissions, only for API 29-30. -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
@@ -12,7 +13,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 
     <application
         android:name=".GlidrApp"
@@ -37,7 +46,7 @@
         </activity>
 
         <service
-            android:name=".service.KeepAwakeService"
+            android:name=".service.GlidrService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
     </application>

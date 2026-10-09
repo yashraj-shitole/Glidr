@@ -34,7 +34,7 @@ import com.yashraj.glidr.ui.theme.ACCENT_NAMES
 import com.yashraj.glidr.ui.theme.Glidr
 
 @Composable
-fun SettingsScreen(s: Settings, update: ((Settings) -> Settings) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(s: Settings, update: ((Settings) -> Settings) -> Unit, onForget: () -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val c = Glidr.colors
     val ctx = LocalContext.current
     val haptics = remember { Haptics(ctx) }
@@ -52,6 +52,7 @@ fun SettingsScreen(s: Settings, update: ((Settings) -> Settings) -> Unit, onBack
                     Label(stringResource(R.string.acceleration), color = c.text, style = Glidr.type.body)
                     Box(Modifier.height(10.dp))
                     Segmented(listOf("Off", "Low", "Med", "High"), s.acceleration, { v -> update { it.copy(acceleration = v) } })
+                    AccelCurve(s.sensitivity, s.acceleration)
                 }
                 SliderRow(stringResource(R.string.scroll_speed), "%.1f×".format(s.scrollSpeed)) {
                     Slider(s.scrollSpeed, 0.5f..3f, { v -> update { it.copy(scrollSpeed = v) } }, stringResource(R.string.scroll_speed))
@@ -96,6 +97,8 @@ fun SettingsScreen(s: Settings, update: ((Settings) -> Settings) -> Unit, onBack
                     Box(Modifier.height(10.dp))
                     Segmented(listOf(stringResource(R.string.off), "Light", "Medium", "Strong"), s.haptics, { v -> update { it.copy(haptics = v) }; haptics.play(Haptic.Click, v) })
                 }
+                SwitchRow(stringResource(R.string.hap_scroll), stringResource(R.string.hap_scroll_sub), s.hapticScroll) { v -> update { it.copy(hapticScroll = v) } }
+                SwitchRow(stringResource(R.string.hap_keys), stringResource(R.string.hap_keys_sub), s.hapticKeys) { v -> update { it.copy(hapticKeys = v) } }
             }
             Section(stringResource(R.string.appearance)) {
                 Pad {
@@ -118,6 +121,18 @@ fun SettingsScreen(s: Settings, update: ((Settings) -> Settings) -> Unit, onBack
                     }
                 }
                 SwitchRow(stringResource(R.string.reduce_motion), stringResource(R.string.reduce_motion_sub), s.reduceMotion) { v -> update { it.copy(reduceMotion = v) } }
+            }
+            Section(stringResource(R.string.connection)) {
+                SwitchRow(stringResource(R.string.auto_reconnect), stringResource(R.string.auto_reconnect_sub), s.autoReconnect) { v -> update { it.copy(autoReconnect = v) } }
+                Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Label(stringResource(R.string.forget_pc), color = c.text, style = Glidr.type.body)
+                        Label(stringResource(R.string.forget_pc_sub), color = c.dim, style = Glidr.type.small)
+                    }
+                    PressBox(onForget, Modifier.height(48.dp), stringResource(R.string.forget_pc), RoundedCornerShape(24.dp)) {
+                        Label(stringResource(R.string.forget), Modifier.padding(horizontal = 18.dp))
+                    }
+                }
             }
             Section(stringResource(R.string.about)) {
                 Pad {
@@ -167,3 +182,30 @@ private fun SwitchRow(title: String, sub: String, on: Boolean, onChange: (Boolea
 private fun Modifier.androidSem(d: String) = this.then(
     Modifier.semantics { contentDescription = d },
 )
+
+/** Preview of the speed-in, speed-out curve for the current sensitivity and acceleration. */
+@Composable
+private fun AccelCurve(sensitivity: Float, accel: Int) {
+    val c = Glidr.colors
+    val k = floatArrayOf(0f, 0.6f, 1.2f, 2.0f)[accel.coerceIn(0, 3)]
+    Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(64.dp)) {
+            val w = size.width
+            val h = size.height
+            val path = androidx.compose.ui.graphics.Path()
+            for (i in 0..24) {
+                val x = i / 24f
+                val y = (sensitivity * x * (1 + k * x) / 6f).coerceIn(0f, 1f)
+                val px = 6f + x * (w - 12f)
+                val py = h - 6f - y * (h - 12f)
+                if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+            }
+            drawLine(c.s3, androidx.compose.ui.geometry.Offset(6f, h - 6f), androidx.compose.ui.geometry.Offset(w - 6f, 6f), 3f)
+            drawPath(path, c.accentText, style = androidx.compose.ui.graphics.drawscope.Stroke(6f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+        }
+    }
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Label(stringResource(R.string.curve_slow).uppercase(), color = c.dim, style = Glidr.type.small)
+        Label(stringResource(R.string.curve_fast).uppercase(), color = c.dim, style = Glidr.type.small)
+    }
+}

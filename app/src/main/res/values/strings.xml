@@ -80,4 +80,30 @@
     <string name="reduce_motion_sub">Turns off animations</string>
     <string name="about">About</string>
     <string name="privacy_note">Glidr sends your touch and key input only to the PC you choose, over Bluetooth. It has no accounts, no ads, no analytics and no internet access.</string>
+
+    <string name="notif_connected">Connected to %1$s</string>
+    <string name="notif_waiting">Waiting for your PC</string>
+    <string name="notif_idle">Glidr is ready to control your PC</string>
+    <string name="tab_voice">Voice</string>
+    <string name="not_connected">Not connected to a PC</string>
+    <string name="voice_skipped">Sent. %1$d characters can\u2019t be typed over Bluetooth with this layout and were skipped.</string>
+    <string name="voice_unavailable">Speech recognition isn\u2019t available on this phone.</string>
+    <string name="voice_error">Couldn\u2019t hear you. Tap the mic to try again.</string>
+    <string name="voice_listening">Listening…</string>
+    <string name="voice_tap">Tap the mic and speak</string>
+    <string name="auto_punct">Auto punctuation</string>
+    <string name="dictate">Dictate</string>
+    <string name="send_to_pc">Send to PC</string>
+    <string name="connection">Connection</string>
+    <string name="auto_reconnect">Auto-reconnect</string>
+    <string name="auto_reconnect_sub">Connects to the last PC when the app opens</string>
+    <string name="forget_pc">Forget this PC</string>
+    <string name="forget_pc_sub">Stops reconnecting. Also remove it in Windows to unpair.</string>
+    <string name="forget">Forget</string>
+    <string name="hap_scroll">Scroll detents</string>
+    <string name="hap_scroll_sub">A tick every few pixels</string>
+    <string name="hap_keys">Key presses</string>
+    <string name="hap_keys_sub">Crisp tap on every key</string>
+    <string name="curve_slow">Slow · precise</string>
+    <string name="curve_fast">Fast · far</string>
 </resources>

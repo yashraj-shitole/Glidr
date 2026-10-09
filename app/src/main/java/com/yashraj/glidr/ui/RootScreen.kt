@@ -50,6 +50,8 @@ fun RootScreen(
     onOpenBluetoothSettings: () -> Unit,
     hasBluetoothPermission: Boolean,
     onToggleKeepAwake: () -> Unit,
+    hasMic: Boolean,
+    onRequestMic: () -> Unit,
 ) {
     val c = Glidr.colors
     val s by vm.settings.collectAsStateWithLifecycle()
@@ -66,7 +68,7 @@ fun RootScreen(
 
     Box(Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.safeDrawing)) {
         when (Page.entries[page]) {
-            Page.Settings -> SettingsScreen(s, vm::update, { page = Page.Pad.ordinal })
+            Page.Settings -> SettingsScreen(s, vm::update, vm::forgetPc, { page = Page.Pad.ordinal })
             else -> Column(Modifier.fillMaxSize()) {
                 TopBar(
                     label = connectionLabel(conn, host?.name),
@@ -97,7 +99,7 @@ fun RootScreen(
                         MediaScreen(vm.engine, s.haptics)
                     }
                 }
-                AnimatedVisibility(kb && page == Page.Pad.ordinal) { KeyboardSheet(vm.engine, s.haptics) }
+                AnimatedVisibility(kb && page == Page.Pad.ordinal) { KeyboardSheet(vm.engine, s, vm.stt, hasMic, onRequestMic) }
                 Dock(
                     media = page == Page.Media.ordinal,
                     kbOn = kb,

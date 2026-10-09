@@ -82,7 +82,7 @@ fun Label(text: String, modifier: Modifier = Modifier, color: Color = Glidr.colo
     BasicText(text, modifier, style = style.copy(color = color))
 }
 
-enum class Ico { Settings, Awake, Keyboard, Back, Down, Pad, Media, Play, Pause, Prev, Next, Stop, Mute, VolUp, VolDown }
+enum class Ico { Mic, Settings, Awake, Keyboard, Back, Down, Pad, Media, Play, Pause, Prev, Next, Stop, Mute, VolUp, VolDown }
 
 @Composable
 fun Icon(kind: Ico, tint: Color, size: Dp = 22.dp) {
@@ -93,6 +93,11 @@ fun Icon(kind: Ico, tint: Color, size: Dp = 22.dp) {
         val st = Stroke(sw, cap = StrokeCap.Round)
         fun p(x: Float, y: Float) = Offset(x * w / 24f, y * w / 24f)
         when (kind) {
+            Ico.Mic -> {
+                drawRoundRect(tint, p(9f, 3f), Size(6f * w / 24f, 11f * w / 24f), androidx.compose.ui.geometry.CornerRadius(w * 0.125f), style = st)
+                drawArc(tint, 0f, 180f, false, p(5.5f, 7f), Size(13f * w / 24f, 10f * w / 24f), style = st)
+                drawLine(tint, p(12f, 17f), p(12f, 21f), sw, StrokeCap.Round)
+            }
             Ico.Settings -> {
                 drawLine(tint, p(4f, 7f), p(20f, 7f), sw, StrokeCap.Round)
                 drawLine(tint, p(4f, 17f), p(20f, 17f), sw, StrokeCap.Round)

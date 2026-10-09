@@ -24,6 +24,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yashraj.glidr.hid.ConnectionState
 import com.yashraj.glidr.ui.GlidrViewModel
+import com.yashraj.glidr.ui.Haptic
+import com.yashraj.glidr.ui.Haptics
 import com.yashraj.glidr.ui.RootScreen
 import com.yashraj.glidr.ui.theme.GlidrTheme
 
@@ -51,9 +53,23 @@ class MainActivity : ComponentActivity() {
             val notif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.toggleKeepAwake() }
 
             LaunchedEffect(granted) { if (granted) vm.startTransport() }
-            LaunchedEffect(conn) { if (conn == ConnectionState.Ready) vm.reconnectLast() }
+            var micGranted by remember { mutableStateOf(hasPermission(Manifest.permission.RECORD_AUDIO)) }
+            val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { micGranted = it }
+            val haptics = remember { Haptics(this@MainActivity) }
+            // Android's "remove animations" system setting also turns motion off.
+            val systemNoAnim = remember {
+                AndroidSettings.Global.getFloat(contentResolver, AndroidSettings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+            }
 
-            GlidrTheme(light = s.lightTheme, accent = s.accent, reduceMotion = s.reduceMotion) {
+            LaunchedEffect(conn) {
+                if (conn == ConnectionState.Ready) vm.reconnectLast()
+                if (conn == ConnectionState.Connected) {
+                    vm.ensureServiceRunning()
+                    haptics.play(Haptic.Confirm, s.haptics)
+                }
+            }
+
+            GlidrTheme(light = s.lightTheme, accent = s.accent, reduceMotion = s.reduceMotion || systemNoAnim) {
                 RootScreen(
                     vm = vm,
                     hasBluetoothPermission = granted,
@@ -67,6 +83,8 @@ class MainActivity : ComponentActivity() {
                         )
                     },
                     onOpenBluetoothSettings = { startActivity(Intent(AndroidSettings.ACTION_BLUETOOTH_SETTINGS)) },
+                    hasMic = micGranted,
+                    onRequestMic = { micPermission.launch(Manifest.permission.RECORD_AUDIO) },
                     onToggleKeepAwake = {
                         val needsNotif = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                             ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -77,6 +95,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun hasBtPermission() = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-        ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+    private fun hasPermission(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
+
+    private fun hasBtPermission() = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || hasPermission(Manifest.permission.BLUETOOTH_CONNECT)
 }

@@ -61,12 +61,18 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         pendingY += motion.outY
     }
 
-    fun scrollBy(dxPx: Float, dyPx: Float) {
+    val connected: Boolean get() = transport.state.value == ConnectionState.Connected
+
+    /** Returns the number of whole scroll detents produced, so the UI can tick. */
+    fun scrollBy(dxPx: Float, dyPx: Float): Int {
         // Natural: content follows the fingers (finger up -> wheel down). HID wheel > 0 scrolls up, pan > 0 right.
         val sign = if (naturalScroll) 1 else -1
         val px = PX_PER_DETENT / scrollSpeed
-        pendingWheel += sign * scroll.add(dyPx, px)
-        pendingPan -= sign * panScroll.add(dxPx, px)
+        val v = scroll.add(dyPx, px)
+        val h = panScroll.add(dxPx, px)
+        pendingWheel += sign * v
+        pendingPan -= sign * h
+        return kotlin.math.abs(v) + kotlin.math.abs(h)
     }
 
     /** Sends whatever has accumulated; returns true if a report went out. */
