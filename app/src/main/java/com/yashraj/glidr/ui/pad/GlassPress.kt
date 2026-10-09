@@ -124,18 +124,6 @@ fun DrawScope.drawGlass(glass: GlassPress, colors: GlidrColors) {
             ),
             radius * 0.8f, c0,
         )
-        // Soft ring of light where the glass curves back up.
-        val ring = if (colors.light) Color.Black.copy(alpha = 0.07f * s) else Color.White.copy(alpha = 0.10f * s)
-        drawCircle(
-            Brush.radialGradient(
-                0.0f to Color.Transparent,
-                0.58f to Color.Transparent,
-                0.76f to ring,
-                1.0f to Color.Transparent,
-                center = c0, radius = radius,
-            ),
-            radius, c0,
-        )
         // Accent light under the glass.
         drawCircle(
             Brush.radialGradient(
