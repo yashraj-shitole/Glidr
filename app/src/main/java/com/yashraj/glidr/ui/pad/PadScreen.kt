@@ -2,6 +2,15 @@ package com.yashraj.glidr.ui.pad
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.foundation.systemGestureExclusion
+import com.yashraj.glidr.ui.motionSpec
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -76,6 +85,10 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
             .pointerInput(settings.tapToClick, level, settings.hapticScroll) {
                 awaitEachGesture {
                     val first = awaitFirstDown(requireUnconsumed = false)
+                    val zone = STRIP_ZONE_DP.dp.toPx()
+                    val inStripX = if (settings.leftHanded) first.position.x < zone else first.position.x > size.width - zone
+                    val inStripY = first.position.y > size.height * 0.2f && first.position.y < size.height * 0.8f
+                    if (inStripX && inStripY) return@awaitEachGesture
                     onTouch(true)
                     engine.touchStart()
                     glow = first.position
@@ -179,24 +192,91 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
         }
         Label(stringResource(R.string.pad_hint), Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp), c.dim, Glidr.type.small)
 
-        // Scroll strip on the dominant-hand edge side.
-        Box(
+        // Scroll strip, 10dp from the edge of the dominant hand, like the mockup.
+        ScrollStrip(
+            engine, settings, onTouch,
             Modifier.align(if (settings.leftHanded) Alignment.CenterStart else Alignment.CenterEnd)
-                .padding(horizontal = 6.dp).fillMaxHeight(0.6f).width(36.dp)
-                .clip(RoundedCornerShape(18.dp)).background(c.s2).border(1.dp, c.line, RoundedCornerShape(18.dp))
-                .pointerInput(level, settings.hapticScroll) {
-                    detectDragGestures(
-                        onDragStart = { engine.touchStart(); onTouch(true) },
-                        onDragEnd = { engine.touchEnd(); onTouch(false) },
-                        onDragCancel = { engine.touchEnd(); onTouch(false) },
-                    ) { ch, drag ->
-                        ch.consume()
-                        if (engine.scrollBy(0f, drag.y) > 0 && settings.hapticScroll) haptics.play(Haptic.Tick, level)
+                .padding(horizontal = 1.dp).fillMaxHeight(0.6f),
+        )
+    }
+}
+
+/**
+ * Vertical scroll strip: ticks move with the finger, the pill widens and takes the accent border while held.
+ * It is a sibling target of the pad, so the pad ignores touches that start inside [STRIP_ZONE_DP].
+ */
+@Composable
+private fun ScrollStrip(engine: HidEngine, settings: Settings, onTouch: (Boolean) -> Unit, modifier: Modifier) {
+    val c = Glidr.colors
+    val ctx = LocalContext.current
+    val haptics = remember { Haptics(ctx) }
+    val level = settings.haptics
+    var pressed by remember { mutableStateOf(false) }
+    var offset by remember { mutableFloatStateOf(0f) }
+    val widen by animateFloatAsState(if (pressed) 1.18f else 1f, motionSpec(), label = "strip")
+    val borderColor by animateColorAsState(if (pressed) c.accent else c.line, motionSpec(), label = "stripBorder")
+    val shape = RoundedCornerShape(15.dp)
+    val density = LocalDensity.current
+    Box(
+        modifier.width(STRIP_ZONE_DP.dp).semantics { contentDescription = "Scroll strip" }
+            // Keep Android's edge back gesture off the strip. The system honours at most ~200dp per edge,
+            // so the exclusion covers the middle of the strip.
+            .systemGestureExclusion { coords ->
+                val max = with(density) { 200.dp.toPx() }
+                val h = coords.size.height.toFloat()
+                val top = ((h - max) / 2f).coerceAtLeast(0f)
+                Rect(0f, top, coords.size.width.toFloat(), top + minOf(h, max))
+            }
+            .pointerInput(level, settings.hapticScroll) {
+                val tick = 12.dp.toPx()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    pressed = true
+                    onTouch(true)
+                    engine.touchStart()
+                    var lastY = down.position.y
+                    var held = true
+                    while (held) {
+                        val ev = awaitPointerEvent()
+                        val ch = ev.changes.firstOrNull { it.id == down.id }
+                        if (ch == null || !ch.pressed) {
+                            held = false
+                        } else {
+                            val dy = ch.position.y - lastY
+                            lastY = ch.position.y
+                            if (dy != 0f) {
+                                offset = (offset + dy) % tick
+                                if (engine.scrollBy(0f, dy) > 0 && settings.hapticScroll) haptics.play(Haptic.Tick, level)
+                            }
+                            ch.consume()
+                        }
+                    }
+                    pressed = false
+                    engine.touchEnd()
+                    onTouch(false)
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.width(30.dp).fillMaxHeight().graphicsLayer { scaleX = widen }
+                .clip(shape).background(c.s2).border(1.dp, borderColor, shape)
+                .drawBehind {
+                    val step = 12.dp.toPx()
+                    val len = 10.dp.toPx()
+                    val x0 = (size.width - len) / 2f
+                    var y = ((offset % step) + step) % step
+                    while (y < size.height) {
+                        drawLine(c.dim, Offset(x0, y), Offset(x0 + len, y), strokeWidth = 1.5.dp.toPx())
+                        y += step
                     }
                 },
         )
     }
 }
+
+private const val STRIP_ZONE_DP = 48
 
 @Composable
 fun MouseButtons(engine: HidEngine, settings: Settings, modifier: Modifier = Modifier) {
