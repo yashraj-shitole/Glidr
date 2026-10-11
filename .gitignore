@@ -16,3 +16,5 @@ local.properties
 /windows/**/bin/
 /windows/**/obj/
 /windows/dist/
+/video/
+/release/

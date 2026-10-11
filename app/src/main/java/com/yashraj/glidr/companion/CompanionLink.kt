@@ -44,8 +44,8 @@ data class NowPlaying(
 
 enum class CompanionState { Off, Listening, Connected }
 
-/** Where the PC downloads the companion .exe from. Leave blank until it is hosted; auto-install stays off. */
-const val COMPANION_DOWNLOAD_URL = ""
+/** Where the PC downloads the companion .exe from. Must match the release asset name; blank turns auto-install off. */
+const val COMPANION_DOWNLOAD_URL = "https://github.com/yashraj-shitole/Glidr/releases/latest/download/GlidrCompanion.exe"
 
 /**
  * One-liner typed into the Windows Run box: downloads the companion into %LOCALAPPDATA%\Glidr and starts it.
