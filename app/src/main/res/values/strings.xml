@@ -123,4 +123,16 @@
     <string name="nudge_style_sub">Roam glides the cursor to a new spot each time</string>
     <string name="nudge_subtle">Subtle</string>
     <string name="nudge_roam">Roam</string>
+    <string name="sync_media">Sync media</string>
+    <string name="install_pc_app">Install PC app</string>
+    <string name="install_pc_app_sub">Shows what is playing on your PC in Media</string>
+    <string name="pc_app_connected">PC app connected</string>
+    <string name="install">Install</string>
+    <string name="install_pc_app_intro">Do this on your Windows PC. Mouse, keyboard and media keys work without it.</string>
+    <string name="install_step_1">Get GlidrCompanion.exe onto your PC. Send yourself the download link, or copy the file over.</string>
+    <string name="install_step_2">Install the .NET 8 Desktop Runtime if Windows asks for it.</string>
+    <string name="install_step_3">Run GlidrCompanion.exe. A Glidr icon appears in the system tray.</string>
+    <string name="install_step_4">Keep this phone paired and connected, then open the Media tab.</string>
+    <string name="send_link_to_pc">Send link to PC</string>
+    <string name="done">Done</string>
 </resources>

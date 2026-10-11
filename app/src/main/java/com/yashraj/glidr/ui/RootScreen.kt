@@ -73,7 +73,7 @@ fun RootScreen(
 
     Box(Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.safeDrawing)) {
         when (Page.entries[page]) {
-            Page.Settings -> SettingsScreen(s, vm::update, vm::forgetPc, { page = Page.Pad.ordinal })
+            Page.Settings -> SettingsScreen(s, companion, vm::update, vm::forgetPc, { page = Page.Pad.ordinal })
             else -> Column(Modifier.fillMaxSize()) {
                 TopBar(
                     label = if (hasBluetoothPermission) connectionLabel(conn, host?.name) else stringResource(R.string.state_need_permission),

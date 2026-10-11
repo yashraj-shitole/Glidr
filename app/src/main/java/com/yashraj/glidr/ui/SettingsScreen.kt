@@ -16,7 +16,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.TextUnitType
+import com.yashraj.glidr.companion.COMPANION_DOWNLOAD_URL
+import com.yashraj.glidr.companion.CompanionState
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.remember
@@ -34,11 +45,17 @@ import com.yashraj.glidr.ui.theme.ACCENT_NAMES
 import com.yashraj.glidr.ui.theme.Glidr
 
 @Composable
-fun SettingsScreen(s: Settings, update: ((Settings) -> Settings) -> Unit, onForget: () -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    s: Settings, companion: CompanionState, update: ((Settings) -> Settings) -> Unit, onForget: () -> Unit, onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val c = Glidr.colors
     val ctx = LocalContext.current
     val haptics = remember { Haptics(ctx) }
-    Column(modifier.fillMaxSize()) {
+    var showInstall by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = showInstall) { showInstall = false }
+    Box(modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             RoundIconButton(Ico.Back, stringResource(R.string.back), onBack)
             Label(stringResource(R.string.settings), color = c.text, style = Glidr.type.title.copy(fontSize = androidx.compose.ui.unit.TextUnit(24f, androidx.compose.ui.unit.TextUnitType.Sp)))
@@ -140,11 +157,64 @@ fun SettingsScreen(s: Settings, update: ((Settings) -> Settings) -> Unit, onForg
                     }
                 }
             }
+            Section(stringResource(R.string.sync_media)) {
+                Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Label(stringResource(R.string.install_pc_app), color = c.text, style = Glidr.type.body)
+                        Label(
+                            stringResource(if (companion == CompanionState.Connected) R.string.pc_app_connected else R.string.install_pc_app_sub),
+                            color = if (companion == CompanionState.Connected) c.accentText else c.dim, style = Glidr.type.small,
+                        )
+                    }
+                    PressBox({ showInstall = true }, Modifier.height(48.dp), stringResource(R.string.install_pc_app), RoundedCornerShape(24.dp)) {
+                        Label(stringResource(R.string.install), Modifier.padding(horizontal = 18.dp))
+                    }
+                }
+            }
             Section(stringResource(R.string.about)) {
                 Pad {
                     Label(stringResource(R.string.privacy_note), color = c.dim, style = Glidr.type.small)
                 }
             }
+        }
+    }
+    if (showInstall) InstallPcAppDialog { showInstall = false }
+    }
+}
+
+@Composable
+private fun InstallPcAppDialog(onClose: () -> Unit) {
+    val c = Glidr.colors
+    val ctx = LocalContext.current
+    val steps = listOf(R.string.install_step_1, R.string.install_step_2, R.string.install_step_3, R.string.install_step_4)
+    Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.padding(24.dp).fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(28.dp))
+                .clickable(enabled = false) {}.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Label(stringResource(R.string.install_pc_app), color = c.text, style = Glidr.type.title.copy(fontSize = TextUnit(22f, TextUnitType.Sp)))
+            Label(stringResource(R.string.install_pc_app_intro), color = c.dim, style = Glidr.type.small)
+            steps.forEachIndexed { i, res ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                    Box(Modifier.size(24.dp).clip(CircleShape).background(c.accent), contentAlignment = Alignment.Center) {
+                        Label("${i + 1}", color = c.ink, style = Glidr.type.small)
+                    }
+                    Label(stringResource(res), color = c.text, style = Glidr.type.body, modifier = Modifier.weight(1f))
+                }
+            }
+            if (COMPANION_DOWNLOAD_URL.isNotBlank()) {
+                val subject = stringResource(R.string.install_pc_app)
+                PressBox(
+                    {
+                        val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+                            .putExtra(Intent.EXTRA_SUBJECT, subject).putExtra(Intent.EXTRA_TEXT, COMPANION_DOWNLOAD_URL)
+                        ctx.startActivity(Intent.createChooser(send, subject))
+                    },
+                    Modifier.fillMaxWidth().height(52.dp), null, background = c.accent, border = false,
+                ) { Label(stringResource(R.string.send_link_to_pc), color = c.ink) }
+            }
+            PressBox(onClose, Modifier.fillMaxWidth().height(52.dp)) { Label(stringResource(R.string.done)) }
         }
     }
 }

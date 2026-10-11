@@ -44,6 +44,9 @@ data class NowPlaying(
 
 enum class CompanionState { Off, Listening, Connected }
 
+/** Where the PC app can be downloaded. Leave blank until the .exe is hosted; the "Send link to PC" button hides itself. */
+const val COMPANION_DOWNLOAD_URL = ""
+
 /**
  * Receives "now playing" lines from the Glidr companion over a Bluetooth RFCOMM serial link. The phone is the
  * server and the PC connects, so only devices already paired with this phone can reach it.
