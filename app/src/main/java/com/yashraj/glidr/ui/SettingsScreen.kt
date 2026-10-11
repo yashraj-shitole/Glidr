@@ -16,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,7 +45,7 @@ import com.yashraj.glidr.ui.theme.Glidr
 
 @Composable
 fun SettingsScreen(
-    s: Settings, companion: CompanionState, update: ((Settings) -> Settings) -> Unit, onForget: () -> Unit, onBack: () -> Unit,
+    s: Settings, companion: CompanionState, pcConnected: Boolean, onInstallOnPc: (onDone: () -> Unit) -> Boolean, update: ((Settings) -> Settings) -> Unit, onForget: () -> Unit, onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val c = Glidr.colors
@@ -178,14 +177,15 @@ fun SettingsScreen(
             }
         }
     }
-    if (showInstall) InstallPcAppDialog { showInstall = false }
+    if (showInstall) InstallPcAppDialog(pcConnected, onInstallOnPc) { showInstall = false }
     }
 }
 
 @Composable
-private fun InstallPcAppDialog(onClose: () -> Unit) {
+private fun InstallPcAppDialog(pcConnected: Boolean, onInstallOnPc: (onDone: () -> Unit) -> Boolean, onClose: () -> Unit) {
     val c = Glidr.colors
-    val ctx = LocalContext.current
+    val hosted = COMPANION_DOWNLOAD_URL.isNotBlank()
+    var phase by rememberSaveable { mutableStateOf(InstallPhase.Idle) }
     val steps = listOf(R.string.install_step_1, R.string.install_step_2, R.string.install_step_3, R.string.install_step_4)
     Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
         Column(
@@ -194,30 +194,37 @@ private fun InstallPcAppDialog(onClose: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Label(stringResource(R.string.install_pc_app), color = c.text, style = Glidr.type.title.copy(fontSize = TextUnit(22f, TextUnitType.Sp)))
-            Label(stringResource(R.string.install_pc_app_intro), color = c.dim, style = Glidr.type.small)
-            steps.forEachIndexed { i, res ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-                    Box(Modifier.size(24.dp).clip(CircleShape).background(c.accent), contentAlignment = Alignment.Center) {
-                        Label("${i + 1}", color = c.ink, style = Glidr.type.small)
+            if (hosted) {
+                Label(stringResource(R.string.auto_install_intro), color = c.dim, style = Glidr.type.small)
+                steps.forEachIndexed { i, res ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                        Box(Modifier.size(24.dp).clip(CircleShape).background(c.accent), contentAlignment = Alignment.Center) {
+                            Label("${i + 1}", color = c.ink, style = Glidr.type.small)
+                        }
+                        Label(stringResource(res), color = c.text, style = Glidr.type.body, modifier = Modifier.weight(1f))
                     }
-                    Label(stringResource(res), color = c.text, style = Glidr.type.body, modifier = Modifier.weight(1f))
                 }
-            }
-            if (COMPANION_DOWNLOAD_URL.isNotBlank()) {
-                val subject = stringResource(R.string.install_pc_app)
-                PressBox(
-                    {
-                        val send = Intent(Intent.ACTION_SEND).setType("text/plain")
-                            .putExtra(Intent.EXTRA_SUBJECT, subject).putExtra(Intent.EXTRA_TEXT, COMPANION_DOWNLOAD_URL)
-                        ctx.startActivity(Intent.createChooser(send, subject))
-                    },
-                    Modifier.fillMaxWidth().height(52.dp), null, background = c.accent, border = false,
-                ) { Label(stringResource(R.string.send_link_to_pc), color = c.ink) }
+                when (phase) {
+                    InstallPhase.Typing -> Label(stringResource(R.string.auto_install_typing), color = c.accentText, style = Glidr.type.body)
+                    InstallPhase.Sent -> Label(stringResource(R.string.auto_install_sent), color = c.accentText, style = Glidr.type.body)
+                    InstallPhase.Failed -> Label(stringResource(R.string.auto_install_failed), color = c.dim, style = Glidr.type.small)
+                    InstallPhase.Idle -> if (!pcConnected) Label(stringResource(R.string.auto_install_need_pc), color = c.dim, style = Glidr.type.small)
+                }
+                if (phase == InstallPhase.Idle || phase == InstallPhase.Failed) {
+                    PressBox(
+                        { if (pcConnected) phase = if (onInstallOnPc { phase = InstallPhase.Sent }) InstallPhase.Typing else InstallPhase.Failed },
+                        Modifier.fillMaxWidth().height(52.dp), null, background = if (pcConnected) c.accent else c.s2, border = false,
+                    ) { Label(stringResource(R.string.install_on_my_pc), color = if (pcConnected) c.ink else c.dim) }
+                }
+            } else {
+                Label(stringResource(R.string.auto_install_not_ready), color = c.dim, style = Glidr.type.body)
             }
             PressBox(onClose, Modifier.fillMaxWidth().height(52.dp)) { Label(stringResource(R.string.done)) }
         }
     }
 }
+
+private enum class InstallPhase { Idle, Typing, Sent, Failed }
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {

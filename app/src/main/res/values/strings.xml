@@ -128,11 +128,16 @@
     <string name="install_pc_app_sub">Shows what is playing on your PC in Media</string>
     <string name="pc_app_connected">PC app connected</string>
     <string name="install">Install</string>
-    <string name="install_pc_app_intro">Do this on your Windows PC. Mouse, keyboard and media keys work without it.</string>
-    <string name="install_step_1">Get GlidrCompanion.exe onto your PC. Send yourself the download link, or copy the file over.</string>
-    <string name="install_step_2">Install the .NET 8 Desktop Runtime if Windows asks for it.</string>
-    <string name="install_step_3">Run GlidrCompanion.exe. A Glidr icon appears in the system tray.</string>
-    <string name="install_step_4">Keep this phone paired and connected, then open the Media tab.</string>
-    <string name="send_link_to_pc">Send link to PC</string>
+    <string name="auto_install_intro">Glidr installs the PC app for you. Your PC must be unlocked and online.</string>
+    <string name="install_step_1">Glidr opens the Run box on your PC (Win+R).</string>
+    <string name="install_step_2">It types a short command that downloads GlidrCompanion.exe.</string>
+    <string name="install_step_3">The app starts and a Glidr icon appears in the tray.</string>
+    <string name="install_step_4">Windows may ask you to confirm. Needs the .NET 8 Desktop Runtime.</string>
+    <string name="install_on_my_pc">Install on my PC</string>
+    <string name="auto_install_need_pc">Connect to your PC first.</string>
+    <string name="auto_install_typing">Typing on your PC. Keep this phone connected.</string>
+    <string name="auto_install_sent">Sent. Watch your PC, the app should start in a few seconds.</string>
+    <string name="auto_install_failed">Your keyboard layout can’t type the install command.</string>
+    <string name="auto_install_not_ready">Auto-install isn’t set up yet: the PC app has no download address.</string>
     <string name="done">Done</string>
 </resources>

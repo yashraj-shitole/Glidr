@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yashraj.glidr.R
+import com.yashraj.glidr.companion.COMPANION_DOWNLOAD_URL
+import com.yashraj.glidr.companion.companionInstallCommand
 import com.yashraj.glidr.hid.ConnectionState
 import com.yashraj.glidr.hid.PcDevice
 import com.yashraj.glidr.ui.pad.KeyboardSheet
@@ -73,7 +75,10 @@ fun RootScreen(
 
     Box(Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.safeDrawing)) {
         when (Page.entries[page]) {
-            Page.Settings -> SettingsScreen(s, companion, vm::update, vm::forgetPc, { page = Page.Pad.ordinal })
+            Page.Settings -> SettingsScreen(
+                s, companion, conn == ConnectionState.Connected,
+                { done -> vm.engine.runOnPc(companionInstallCommand(COMPANION_DOWNLOAD_URL), done) },
+                vm::update, vm::forgetPc, { page = Page.Pad.ordinal })
             else -> Column(Modifier.fillMaxSize()) {
                 TopBar(
                     label = if (hasBluetoothPermission) connectionLabel(conn, host?.name) else stringResource(R.string.state_need_permission),

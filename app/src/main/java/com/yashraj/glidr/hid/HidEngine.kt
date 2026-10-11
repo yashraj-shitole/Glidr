@@ -252,6 +252,37 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         }
     }
 
+    /**
+     * Opens the Windows Run box (Win+R), types [command] and presses Enter. Holds the key lock for the whole
+     * sequence so nothing else can interleave. Returns false without typing if the layout cannot produce every character.
+     */
+    fun runOnPc(command: String, onDone: () -> Unit = {}): Boolean {
+        if (layoutUnsupported(command).isNotEmpty()) return false
+        scope.launch {
+            keyLock.withLock {
+                tapKey(Keys.R, HidReports.MOD_GUI)
+                delay(RUN_OPEN_MS)
+                for (c in command) {
+                    val stroke = layout.strokeFor(c) ?: continue
+                    tapKey(stroke.usage, stroke.modifiers)
+                }
+                delay(KEY_MS * 4)
+                tapKey(Keys.ENTER, 0)
+            }
+            onDone()
+        }
+        return true
+    }
+
+    private suspend fun tapKey(usage: Int, modifiers: Int) {
+        HidReports.keyboard(keyBuf, modifiers, usage)
+        transport.sendKeyboard(keyBuf)
+        delay(KEY_MS)
+        HidReports.keyboard(keyBuf, 0)
+        transport.sendKeyboard(keyBuf)
+        delay(KEY_MS)
+    }
+
     /** Characters in [text] that [layout] cannot type. */
     fun layoutUnsupported(text: String): String = text.filter { layout.strokeFor(it) == null }
 
@@ -275,6 +306,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         val SMOOTH_A = (1.0 - exp(-4.0 / 9.0)).toFloat()
         const val CLICK_MS = 40L
         const val KEY_MS = 15L
+        const val RUN_OPEN_MS = 900L
         const val ROAM_MIN = 250.0
         const val ROAM_MAX = 800.0
         const val ROAM_STEP = 22.0

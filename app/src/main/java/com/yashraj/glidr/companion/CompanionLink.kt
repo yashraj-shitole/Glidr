@@ -44,8 +44,17 @@ data class NowPlaying(
 
 enum class CompanionState { Off, Listening, Connected }
 
-/** Where the PC app can be downloaded. Leave blank until the .exe is hosted; the "Send link to PC" button hides itself. */
+/** Where the PC downloads the companion .exe from. Leave blank until it is hosted; auto-install stays off. */
 const val COMPANION_DOWNLOAD_URL = ""
+
+/**
+ * One-liner typed into the Windows Run box: downloads the companion into %LOCALAPPDATA%\Glidr and starts it.
+ * Uses only characters every keyboard layout can type and no quotes, so it survives Run's argument handling.
+ */
+fun companionInstallCommand(url: String): String {
+    val exe = "\$env:LOCALAPPDATA/Glidr/GlidrCompanion.exe"
+    return "powershell -w hidden -c md \$env:LOCALAPPDATA/Glidr -f;iwr $url -OutFile $exe;start $exe"
+}
 
 /**
  * Receives "now playing" lines from the Glidr companion over a Bluetooth RFCOMM serial link. The phone is the

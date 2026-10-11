@@ -98,6 +98,7 @@ object Keys {
     const val F4 = 0x3D
     const val L = 0x0F
     const val D = 0x07
+    const val R = 0x15
 
     const val CONSUMER_PLAY_PAUSE = 0x00CD
     const val CONSUMER_NEXT = 0x00B5
