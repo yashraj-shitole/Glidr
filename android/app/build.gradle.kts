@@ -25,9 +25,11 @@ android {
 
     buildTypes {
         release {
+            // Whole-app R8. A packageScope limited to androidx/kotlin/kotlinx moved part of the Kotlin
+            // StringsKt facade out of kotlin.text, away from its package-private superclass; GlidrScreen's
+            // release build crashed on launch with IllegalAccessError from the same setting.
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
         }
     }
