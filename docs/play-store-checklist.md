@@ -4,7 +4,7 @@ What the code already satisfies, and what only you can do in Play Console.
 
 ## Done in the project
 - `targetSdk` 37, `compileSdk` 37 (above Play's current target requirement), `minSdk` 29.
-- Release builds are shrunk with R8; build the upload bundle with `gradlew.bat bundleRelease`.
+- Release builds are shrunk with R8; build the upload bundle with `gradlew.bat bundleRelease` (from `android/`).
 - Only permissions the app uses: `BLUETOOTH_CONNECT`, legacy `BLUETOOTH` / `BLUETOOTH_ADMIN` (maxSdk 30), `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_CONNECTED_DEVICE`, `POST_NOTIFICATIONS`, `POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `RECORD_AUDIO` (Voice tab only), `VIBRATE`, `INTERNET`.
   No location, contacts, storage or camera permission. `INTERNET` is used only by the update check, which asks
   GitHub for the latest release; it is switched off automatically when Google Play installed the app (Play delivers
