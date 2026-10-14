@@ -119,44 +119,55 @@
   /* the finger on the pad, and the PC pointer it drives, are the same path */
   function finger(t) { return { u: 0.5 + 0.3 * Math.sin(t * 1.4), v: 0.5 + 0.32 * Math.sin(t * 1.9 + 0.6) }; }
 
-  function drawDesk(c, x, y, w, h, t, f, radius) {
-    c.save(); c.translate(x, y); if (radius) { rr(c, 0, 0, w, h, radius); c.clip(); }
-    c.scale(w / 960, h / 540);
+  /* the desktop's wallpaper, windows and taskbar never change: draw them once, then only the live bits per frame */
+  var deskCache = null;
+  function deskStatic() {
+    if (deskCache) return deskCache;
+    var cv = document.createElement('canvas'); cv.width = 960; cv.height = 540; var c = cv.getContext('2d');
     var g = c.createRadialGradient(180, 54, 0, 180, 54, 780); g.addColorStop(0, '#1b2740'); g.addColorStop(0.55, '#0d1220'); g.addColorStop(1, '#07080d');
     c.fillStyle = g; c.fillRect(0, 0, 960, 540);
     g = c.createRadialGradient(805, 470, 0, 805, 470, 380); g.addColorStop(0, rgba(acHex, 0.2)); g.addColorStop(1, rgba(acHex, 0));
     c.fillStyle = g; c.fillRect(0, 0, 960, 540);
-    // dashboard window
     c.fillStyle = '#12141a'; rr(c, 56, 36, 640, 384, 14); c.fill(); c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1.5; c.stroke();
     c.fillStyle = '#1b1d24'; rr(c, 56, 36, 640, 38, 14); c.fill(); c.fillRect(56, 56, 640, 18);
     c.fillStyle = acHex; rr(c, 72, 48, 14, 14, 4); c.fill();
     text(c, 'Launch day · Dashboard', 96, 55, font(600, 15), '#c9cad1');
     text(c, 'ACTIVE SESSIONS', 84, 112, font(600, 13, 1), '#7d808b', 'left', 2);
-    text(c, String(12480 + Math.floor(t * 37) % 900).replace(/\B(?=(\d{3})+(?!\d))/g, ','), 84, 166, font(700, 58), '#f3f2ee', 'left', -2);
     text(c, '▲ 12.4%', 84, 214, font(600, 17, 1), acHex);
-    for (var i = 0; i < 15; i++) {
-      var bh = 36 + (Math.sin(t * 2.1 + i * 0.7) * 0.5 + 0.5) * 120;
-      c.fillStyle = i > 10 ? acHex : '#2a2d37'; rr(c, 84 + i * 37, 392 - bh, 24, bh, 6); c.fill();
-    }
     c.fillStyle = '#171920'; rr(c, 480, 92, 190, 124, 12); c.fill();
-    c.beginPath(); for (i = 0; i < 24; i++) { var px = 486 + i * 7.4, py = 190 - (Math.sin(t * 1.6 + i * 0.5) * 0.5 + 0.5) * 60 - i * 1.4; i ? c.lineTo(px, py) : c.moveTo(px, py); }
-    c.strokeStyle = acHex; c.lineWidth = 3; c.lineJoin = 'round'; c.stroke();
-    // notes window
     c.fillStyle = '#1e2027'; rr(c, 560, 200, 340, 232, 14); c.fill(); c.strokeStyle = 'rgba(255,255,255,.1)'; c.stroke();
     c.fillStyle = '#272a33'; rr(c, 560, 200, 340, 36, 14); c.fill(); c.fillRect(560, 222, 340, 14);
     text(c, 'Notes', 580, 218, font(600, 14), '#c9cad1');
     [300, 238, 270, 190].forEach(function (lw, k) { c.fillStyle = k === 3 ? rgba(acHex, 0.8) : '#3a3d47'; rr(c, 584, 262 + k * 30, lw, 10, 5); c.fill(); });
-    // taskbar
     c.fillStyle = 'rgba(16,17,22,.94)'; c.fillRect(0, 498, 960, 42); c.fillStyle = 'rgba(255,255,255,.06)'; c.fillRect(0, 498, 960, 1.5);
     ['#3b82f6', '#3a3d47', acHex, '#3a3d47', '#3a3d47'].forEach(function (col, k) { c.fillStyle = col; rr(c, 390 + k * 40, 508, 22, 22, 6); c.fill(); });
     text(c, '9:41', 936, 519, font(500, 15), '#cfd1d8', 'right');
+    deskCache = cv; return cv;
+  }
+  function drawDesk(c, x, y, w, h, t, f, radius) {
+    c.save(); c.translate(x, y); if (radius) { rr(c, 0, 0, w, h, radius); c.clip(); }
+    c.drawImage(deskStatic(), 0, 0, w, h);
+    c.scale(w / 960, h / 540);
+    text(c, String(12480 + Math.floor(t * 37) % 900).replace(/\B(?=(\d{3})+(?!\d))/g, ','), 84, 166, font(700, 58), '#f3f2ee', 'left', -2);
+    for (var i = 0; i < 15; i++) {
+      var bh = 36 + (Math.sin(t * 2.1 + i * 0.7) * 0.5 + 0.5) * 120;
+      c.fillStyle = i > 10 ? acHex : '#2a2d37'; c.fillRect(84 + i * 37, 392 - bh, 24, bh);
+    }
+    c.beginPath(); for (i = 0; i < 24; i++) { var px = 486 + i * 7.4, py = 190 - (Math.sin(t * 1.6 + i * 0.5) * 0.5 + 0.5) * 60 - i * 1.4; i ? c.lineTo(px, py) : c.moveTo(px, py); }
+    c.strokeStyle = acHex; c.lineWidth = 3; c.lineJoin = 'round'; c.stroke();
     if (f) cursorArrow(c, (0.1 + 0.8 * f.u) * 960, (0.12 + 0.7 * f.v) * 540, 1.9);
     c.restore();
   }
 
+  var dotPats = {};
+  function dotPattern(c, col) {
+    if (dotPats[col]) return dotPats[col];
+    var t = document.createElement('canvas'); t.width = t.height = 22; var x = t.getContext('2d'); x.fillStyle = col; x.fillRect(0, 0, 2, 2);
+    return (dotPats[col] = c.createPattern(t, 'repeat'));
+  }
   function padArea(c, P, x, y, w, h, t, f, hint) {
     c.save(); rr(c, x, y, w, h, 32); c.fillStyle = P.s1; c.fill(); c.clip();
-    c.fillStyle = P.dot; for (var gx = x + 12; gx < x + w; gx += 22) for (var gy = y + 12; gy < y + h; gy += 22) c.fillRect(gx, gy, 2, 2);
+    c.save(); c.translate(x + 12, y + 12); c.fillStyle = dotPattern(c, P.dot); c.fillRect(-12, -12, w, h); c.restore();
     var fx_ = x + 24 + (w - 48) * f.u, fy = y + 24 + (h - 48) * f.v;
     for (var i = 7; i >= 1; i--) { var ff = finger(t - i * 0.035); c.fillStyle = rgba(acHex, 0.05 + 0.025 * (8 - i)); c.beginPath(); c.arc(x + 24 + (w - 48) * ff.u, y + 24 + (h - 48) * ff.v, 22 - i * 1.6, 0, 7); c.fill(); }
     var g = c.createRadialGradient(fx_, fy, 0, fx_, fy, 110); g.addColorStop(0, rgba(acHex, 0.34)); g.addColorStop(0.4, rgba(acHex, 0.11)); g.addColorStop(1, rgba(acHex, 0));
@@ -247,7 +258,7 @@
   function drawPhone(o, mode, t) {
     var c = o.ctx, P = pal(); c.save(); c.setTransform(o.c.width / 390, 0, 0, o.c.height / 844, 0, 0);
     c.fillStyle = P.bg; c.fillRect(0, 0, 390, 844);
-    drawPad(c, P, t);
+    if (mode < 0.999) drawPad(c, P, t);
     if (mode > 0.001) { c.globalAlpha = clamp(mode, 0, 1); c.fillStyle = P.bg; c.fillRect(0, 0, 390, 844); drawViewer(c, P, t); }
     if (mode > 1.001) { c.globalAlpha = clamp(mode - 1, 0, 1); drawDisplays(c, P, t); }
     c.globalAlpha = 1;
@@ -381,7 +392,7 @@
     cursorMat.color.copy(acCol); cursorMat.emissive.copy(acCol); cursorMat.emissiveIntensity = light ? 0.08 : 0.22;
     rim.color.copy(acCol);
     renderer.toneMappingExposure = light ? 1.0 : 1.05;
-    dirty = true;
+    deskCache = null; dirty = true;
   }
   var dirty = true;
   G.onChange(applyLook);
@@ -403,17 +414,26 @@
   while (S.length < secs.length - 1) S.push(Object.assign({}, hidePose));
   S.push(pose({ vis: 0.55, go: 1, gs: 3.7, gx: 0, gy: -0.3, ps: 0.01, mo: 0, so: 0, co: 0, ro: 0, mode: 0, mx: 4, mz: -3 }));
 
-  var keys = Object.keys(D), cur = {}, vel = {}, tgt = {};
-  keys.forEach(function (k) { cur[k] = S[0][k]; vel[k] = 0; tgt[k] = S[0][k]; });
-  var aspect = 1.6, tops = [], stageF = 0;
-  function measure() {
+  var keys = Object.keys(D), cur = Object.assign({}, S[0]);
+  var aspect = 1.6, tops = [], stageF = 0, stageS = 0, stageV = 0;
+  var lastW = 0, lastH = 0;
+  function layout() {                       // where each section sits on the page
+    tops = secs.map(function (s) { return s.getBoundingClientRect().top + window.scrollY; });
+    tops.push(document.querySelector('main').getBoundingClientRect().bottom + window.scrollY);
+    dirty = true;
+  }
+  function resize() {                       // canvas size and camera, only when the window really changed
+    lastW = innerWidth; lastH = innerHeight;
     aspect = innerWidth / innerHeight; camera.aspect = aspect;
     camera.fov = aspect < 0.8 ? 32 + (0.8 - aspect) * 22 : 32;      // wider framing on tall screens
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight, false);
-    tops = secs.map(function (s) { return s.getBoundingClientRect().top + window.scrollY; });
-    tops.push(document.querySelector('main').getBoundingClientRect().bottom + window.scrollY);
-    dirty = true;
+  }
+  function measure() { resize(); layout(); }
+  var DPRcur = DPR;
+  function setRes(r) {
+    DPRcur = r; renderer.setPixelRatio(r); renderer.setSize(innerWidth, innerHeight, false);
+    fx.forEach(function (f) { if (f.shader) { var u = f.m.uniforms; if (u.uPx) u.uPx.value = r * 2; if (u.uSize) u.uSize.value = r * 2.1; } });
   }
   function stageAt(y) {
     var c = y + innerHeight * 0.5, i = 0;
@@ -422,10 +442,11 @@
     return i + clamp((c - tops[i]) / Math.max(span, 1), 0, 0.999);
   }
   function blend(a, b, t) { var o = {}; keys.forEach(function (k) { o[k] = lerp(a[k], b[k], t); }); return o; }
+  /* stage 0.5 = the centre of section 0, 1.5 = the centre of section 1, ... The pose is a single smooth blend between the
+     two nearest centres (with a short hold at each), so there is no seam where one section ends and the next begins. */
   function targetPose(stage) {
-    var i = Math.min(Math.floor(stage), S.length - 1), f = stage - i;
-    if (f < 0.5) return blend(S[Math.max(i - 1, 0)], S[i], sm(f / 0.4));
-    return blend(S[i], S[Math.min(i + 1, S.length - 1)], sm((f - 0.6) / 0.4));
+    var v = clamp(stage - 0.5, 0, S.length - 1), i = Math.min(Math.floor(v), S.length - 2), t = v - i;
+    return blend(S[i], S[i + 1], sm((t - 0.16) / 0.68));
   }
   function fit(p) {                       // adapt a landscape pose to the current aspect ratio
     var k = clamp(aspect / 1.6, 0.22, 1), q = Object.assign({}, p), fs = 0.62 + 0.38 * k;
@@ -443,21 +464,20 @@
   function bezier(u, out) {
     var a = 1 - u; return out.set(a * a * A.x + 2 * a * u * Cc.x + u * u * B.x, a * a * A.y + 2 * a * u * Cc.y + u * u * B.y, a * a * A.z + 2 * a * u * Cc.z + u * u * B.z);
   }
-  var acc = 0, texTick = 0;
+  var texTick = 0, monTick = 0, ema = 16, slow = 0;
   function frame(now) {
     var dt = clamp((now - last) / 1000, 0, 0.05); last = now; var t = Math.max(0, (now - t0) / 1000);
-    var tp = fit(targetPose(stageF));
-    keys.forEach(function (k) { tgt[k] = tp[k]; });
-    if (reduce) { keys.forEach(function (k) { cur[k] = tgt[k]; }); intro = 1; }
+    if (reduce) { stageS = stageF; intro = 1; }
     else {
       var steps = Math.max(1, Math.ceil(dt / (1 / 90))), h = dt / steps;
       for (var s = 0; s < steps; s++) {
-        keys.forEach(function (k) { var a = 90 * (tgt[k] - cur[k]) - 17.5 * vel[k]; vel[k] += a * h; cur[k] += vel[k] * h; });
+        stageV += (60 * (stageF - stageS) - 15.5 * stageV) * h; stageS += stageV * h;     // critically damped: smooth, no overshoot
         var ia = 55 * (1 - intro) - 12 * introV; introV += ia * h; intro += introV * h;
       }
       par.vx += (60 * (G.mouse.x - par.x) - 12 * par.vx) * dt; par.x += par.vx * dt;
       par.vy += (60 * (G.mouse.y - par.y) - 12 * par.vy) * dt; par.y += par.vy * dt;
     }
+    cur = fit(targetPose(stageS));
     var vis = clamp(cur.vis, 0, 1) * clamp(intro, 0, 1);
     canvas.style.opacity = vis.toFixed(3);
     if (vis < 0.01) return;
@@ -483,13 +503,10 @@
     cursor.scale.setScalar(Math.max(cur.cs * cur.co * I, 0.001));
 
     // textures (throttled; phone UI and desktop are alive)
-    texTick += dt;
-    if (texTick > 1 / 30 || dirty || reduce) {
-      texTick = 0;
-      var tt = reduce ? 1.2 : t;
-      if (phone.visible) drawPhone(phoneTex, clamp(cur.mode, 0, 2), tt);
-      if (mon.visible) { var c = monTex.ctx; c.save(); c.setTransform(1, 0, 0, 1, 0, 0); drawDesk(c, 0, 0, 1024, 576, tt, finger(tt), 0); c.restore(); monTex.tex.needsUpdate = true; }
-    }
+    texTick += dt; monTick += dt;
+    var tt = reduce ? 1.2 : t;
+    if (phone.visible && (texTick > 1 / 24 || dirty || reduce)) { texTick = 0; drawPhone(phoneTex, clamp(cur.mode, 0, 2), tt); }
+    if (mon.visible && (monTick > 1 / 20 || dirty || reduce)) { monTick = 0; var c = monTex.ctx; c.save(); c.setTransform(1, 0, 0, 1, 0, 0); drawDesk(c, 0, 0, 1024, 576, tt, finger(tt), 0); c.restore(); monTex.tex.needsUpdate = true; }
 
     // rings (bluetooth range) centred on the phone
     rings.forEach(function (r, k) {
@@ -538,17 +555,25 @@
     cursorGlow.material.opacity = (light ? 0.14 : 0.5) * clamp(cur.co, 0, 1);
     renderer.render(scene, camera);
     dirty = false;
+    if (!reduce) {                                       // adaptive resolution: step the pixel ratio down on a slow device
+      ema += (dt * 1000 - ema) * 0.06;
+      if (ema > 24 && DPRcur > 1) { if (++slow > 45) { slow = 0; ema = 16; setRes(Math.max(1, DPRcur - 0.25)); } } else slow = 0;
+    }
   }
 
   /* ---------------------------------------------------------------- loop */
   function onScroll() { stageF = stageAt(window.scrollY); if (reduce) { requestAnimationFrame(frame); } }
   window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', function () { measure(); onScroll(); });
+  window.addEventListener('resize', function () {
+    // mobile address bars change innerHeight a little while scrolling: ignore that, resizing would reset the canvas mid-scroll
+    if (innerWidth !== lastW || Math.abs(innerHeight - lastH) > 150) resize();
+    layout(); onScroll();
+  });
   window.addEventListener('load', function () { measure(); onScroll(); });
-  if (window.ResizeObserver) new ResizeObserver(function () { var h = document.body.scrollHeight; if (Math.abs(h - (measure.h || 0)) > 4) { measure.h = h; measure(); onScroll(); } }).observe(document.body);
+  if (window.ResizeObserver) new ResizeObserver(function () { var h = document.body.scrollHeight; if (Math.abs(h - (measure.h || 0)) > 4) { measure.h = h; layout(); onScroll(); } }).observe(document.body);
   document.addEventListener('visibilitychange', function () { last = performance.now(); });
   if (document.fonts && document.fonts.load) {
-    Promise.all([document.fonts.load('700 20px Geist'), document.fonts.load('500 12px "Geist Mono"')]).then(function () { fontsReady = true; dirty = true; if (reduce) requestAnimationFrame(frame); });
+    Promise.all([document.fonts.load('700 20px Geist'), document.fonts.load('500 12px "Geist Mono"')]).then(function () { fontsReady = true; deskCache = null; dirty = true; if (reduce) requestAnimationFrame(frame); });
   }
   applyLook(); measure(); onScroll();
   if (reduce) { requestAnimationFrame(frame); }

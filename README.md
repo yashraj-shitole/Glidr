@@ -26,10 +26,14 @@ static host (GitHub Pages, Vercel, Netlify).
 | `js/scene.js` | the 3D scene, textures, stage poses (`S` array) |
 | `fonts/`, `img/` | Geist fonts (OFL) and the two app marks |
 
-## Links to update on release
+## Download links
 
-Download buttons point at GitHub Releases: `Glidr-1.0.0.apk` and `GlidrCompanion.exe` on the Glidr repo, and
-`releases/latest` on the Glidr Screen repo (it has no release yet, so those buttons open an empty releases page until one
-is published).
+The buttons point straight at the v1.0.0 release files, so the browser downloads them directly (same tab):
+
+* Glidr: `Glidr-1.0.0.apk` and `GlidrCompanion.exe`
+* Glidr Screen: `GlidrScreen-1.0.0.apk` and `GlidrScreen-1.0.0-win-x64.zip`
+
+Links that open a GitHub page (repos, release lists) and the portfolio open in a new tab. When you publish a new version,
+search `index.html` for `v1.0.0` and update the four file names.
 
 Built by [Yashraj Shitole](https://yashrajshitole.in).
