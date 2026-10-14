@@ -20,6 +20,9 @@ sealed class MediaWatcher : IDisposable
     string _lastKey = "";
     string? _lastArt;
     int _pending;
+    // A newly connected phone needs the cover art again. Kept as a flag so the request survives being coalesced
+    // into a publish that was already pending.
+    int _forceArt;
 
     public MediaWatcher(PhoneLink link)
     {
@@ -68,6 +71,7 @@ sealed class MediaWatcher : IDisposable
 
     async Task PublishAsync(bool forceArt)
     {
+        if (forceArt) Interlocked.Exchange(ref _forceArt, 1);
         // Coalesce bursts of change events into one message.
         if (Interlocked.Exchange(ref _pending, 1) == 1) return;
         await Task.Delay(120);
@@ -77,6 +81,7 @@ sealed class MediaWatcher : IDisposable
         try
         {
             if (!_link.IsConnected) return;
+            forceArt = Interlocked.Exchange(ref _forceArt, 0) == 1;
             var session = _session;
             if (session == null)
             {

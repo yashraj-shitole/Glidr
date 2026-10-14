@@ -34,6 +34,7 @@ import com.yashraj.glidr.R
 import com.yashraj.glidr.data.Settings
 import com.yashraj.glidr.hid.HidEngine
 import com.yashraj.glidr.hid.HidReports
+import com.yashraj.glidr.hid.KeyboardLayout
 import com.yashraj.glidr.hid.Keys
 import com.yashraj.glidr.ui.Haptic
 import com.yashraj.glidr.ui.Haptics
@@ -49,21 +50,27 @@ import com.yashraj.glidr.voice.SttState
 private val LETTER_ROWS = listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
 private val SYMBOL_ROWS = listOf("1234567890", "@#$%&-+()/", "*\":;!?=_^'", "[]{}<>\\|~`")
 
-private class Shortcut(val name: String, val keys: List<String>, val usage: Int, val mods: Int)
+/**
+ * A shortcut is either a fixed key ([usage]) or a [letter]. Windows matches letter shortcuts by the character the
+ * PC's layout puts on the key, so letters go through the layout table (on DE, Z sits where US has Y).
+ */
+private class Shortcut(val name: String, val keys: List<String>, val mods: Int, val usage: Int = 0, val letter: Char? = null) {
+    fun usageFor(layout: KeyboardLayout): Int = letter?.let { layout.strokeFor(it)?.usage } ?: usage
+}
 
 private val SHORTCUTS = listOf(
-    Shortcut("Copy", listOf("Ctrl", "C"), 0x06, HidReports.MOD_CTRL),
-    Shortcut("Paste", listOf("Ctrl", "V"), 0x19, HidReports.MOD_CTRL),
-    Shortcut("Cut", listOf("Ctrl", "X"), 0x1B, HidReports.MOD_CTRL),
-    Shortcut("Undo", listOf("Ctrl", "Z"), 0x1D, HidReports.MOD_CTRL),
-    Shortcut("Select all", listOf("Ctrl", "A"), 0x04, HidReports.MOD_CTRL),
-    Shortcut("Save", listOf("Ctrl", "S"), 0x16, HidReports.MOD_CTRL),
-    Shortcut("Switch app", listOf("Alt", "Tab"), Keys.TAB, HidReports.MOD_ALT),
-    Shortcut("Task view", listOf("Win", "Tab"), Keys.TAB, HidReports.MOD_GUI),
-    Shortcut("Desktop", listOf("Win", "D"), Keys.D, HidReports.MOD_GUI),
-    Shortcut("Lock", listOf("Win", "L"), Keys.L, HidReports.MOD_GUI),
-    Shortcut("Close window", listOf("Alt", "F4"), Keys.F4, HidReports.MOD_ALT),
-    Shortcut("Screenshot", listOf("Win", "Shift", "S"), 0x16, HidReports.MOD_GUI or HidReports.MOD_SHIFT),
+    Shortcut("Copy", listOf("Ctrl", "C"), HidReports.MOD_CTRL, letter = 'c'),
+    Shortcut("Paste", listOf("Ctrl", "V"), HidReports.MOD_CTRL, letter = 'v'),
+    Shortcut("Cut", listOf("Ctrl", "X"), HidReports.MOD_CTRL, letter = 'x'),
+    Shortcut("Undo", listOf("Ctrl", "Z"), HidReports.MOD_CTRL, letter = 'z'),
+    Shortcut("Select all", listOf("Ctrl", "A"), HidReports.MOD_CTRL, letter = 'a'),
+    Shortcut("Save", listOf("Ctrl", "S"), HidReports.MOD_CTRL, letter = 's'),
+    Shortcut("Switch app", listOf("Alt", "Tab"), HidReports.MOD_ALT, usage = Keys.TAB),
+    Shortcut("Task view", listOf("Win", "Tab"), HidReports.MOD_GUI, usage = Keys.TAB),
+    Shortcut("Desktop", listOf("Win", "D"), HidReports.MOD_GUI, letter = 'd'),
+    Shortcut("Lock", listOf("Win", "L"), HidReports.MOD_GUI, letter = 'l'),
+    Shortcut("Close window", listOf("Alt", "F4"), HidReports.MOD_ALT, usage = Keys.F4),
+    Shortcut("Screenshot", listOf("Win", "Shift", "S"), HidReports.MOD_GUI or HidReports.MOD_SHIFT, letter = 's'),
 )
 
 @Composable
@@ -161,7 +168,7 @@ fun KeyboardSheet(
                                 .border(1.dp, c.line, RoundedCornerShape(18.dp))
                                 .clickable {
                                     if (engine.connected) {
-                                        engine.pressKey(s.usage, s.mods)
+                                        engine.pressKey(s.usageFor(engine.layout), s.mods)
                                         haptics.play(Haptic.Confirm, level)
                                     } else {
                                         haptics.play(Haptic.Reject, settings.haptics)

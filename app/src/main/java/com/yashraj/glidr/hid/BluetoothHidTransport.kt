@@ -49,11 +49,12 @@ class BluetoothHidTransport(context: Context) : HidTransport {
     private var epoch = 0
     private var connectTries = 0
 
-    private var hid: BluetoothHidDevice? = null
-    private var connected: BluetoothDevice? = null
-    private var registered = false
-    private var wantConnected: BluetoothDevice? = null
-    private var started = false
+    // Written on the main thread and the HID callback executor, read by the 250 Hz mouse sender thread in [send].
+    @Volatile private var hid: BluetoothHidDevice? = null
+    @Volatile private var connected: BluetoothDevice? = null
+    @Volatile private var registered = false
+    @Volatile private var wantConnected: BluetoothDevice? = null
+    @Volatile private var started = false
 
     private val callback = object : BluetoothHidDevice.Callback() {
         override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {

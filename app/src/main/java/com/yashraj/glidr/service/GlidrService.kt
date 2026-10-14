@@ -91,28 +91,34 @@ class GlidrService : Service() {
                 delay(1000)
                 val cfg = app.settings.flow.first()
                 everySec = Settings.NUDGE_SECONDS[cfg.nudgeEvery.coerceIn(0, 3)]
-                val st = app.keepAwake.state.value
-                val elapsed = st.elapsedSec + 1
                 val limitMin = Settings.AUTO_STOP_MINUTES[cfg.autoStop.coerceIn(0, 3)]
-                if (limitMin > 0 && elapsed >= limitMin * 60) {
+                if (limitMin > 0 && app.keepAwake.state.value.elapsedSec + 1 >= limitMin * 60) {
                     stopAwake()
                     return@launch
                 }
-                if (st.paused) {
-                    app.keepAwake.set(st.copy(elapsedSec = elapsed))
-                } else {
-                    var next = st.nextInSec - 1
-                    if (next <= 0) {
-                        val blocked = cfg.pauseWhileTouching && app.keepAwake.touching
-                        if (blocked) {
-                            next = 1 // retry shortly, never mid-gesture
-                        } else {
-                            if (app.transport.state.value == ConnectionState.Connected) app.engine.nudge(cfg.nudgeRoam)
-                            next = everySec
+                // Atomic read-modify-write: the notification's Pause / Nudge now actions change this state from
+                // the main thread, and a plain read-then-set here could silently undo them.
+                var nudgeNow = false
+                app.keepAwake.update { st ->
+                    nudgeNow = false
+                    when {
+                        !st.active -> st
+                        st.paused -> st.copy(elapsedSec = st.elapsedSec + 1)
+                        else -> {
+                            var next = st.nextInSec - 1
+                            if (next <= 0) {
+                                if (cfg.pauseWhileTouching && app.keepAwake.touching) {
+                                    next = 1 // retry shortly, never mid-gesture
+                                } else {
+                                    nudgeNow = true
+                                    next = everySec
+                                }
+                            }
+                            st.copy(elapsedSec = st.elapsedSec + 1, nextInSec = next)
                         }
                     }
-                    app.keepAwake.set(st.copy(elapsedSec = elapsed, nextInSec = next))
                 }
+                if (nudgeNow && app.transport.state.value == ConnectionState.Connected) app.engine.nudge(cfg.nudgeRoam)
                 refresh()
             }
         }

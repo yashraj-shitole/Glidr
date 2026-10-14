@@ -92,7 +92,9 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
             .clip(RoundedCornerShape(32.dp))
             .background(c.s1)
             .border(1.dp, c.line, RoundedCornerShape(32.dp))
-            .pointerInput(settings.tapToClick, level, settings.hapticScroll) {
+            // Every value the gesture block reads must be a key, or it keeps using the value from when it started
+            // (left-handed mode would leave the strip's dead zone on the old side; reduce motion a stale glass).
+            .pointerInput(settings.tapToClick, level, settings.hapticScroll, settings.leftHanded, glass) {
                 awaitEachGesture {
                     val first = awaitFirstDown(requireUnconsumed = false)
                     val zone = STRIP_ZONE_DP.dp.toPx()
@@ -170,12 +172,13 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                         ev.changes.forEach { it.consume() }
                     } while (ev == null || ev.changes.any { it.pressed })
                     } finally {
-                        // Never leave the button stuck down, even if the gesture is cancelled.
+                        // Never leave the button stuck down, the 250 Hz sender running or keep-awake believing a
+                        // finger is on the pad, even if the gesture is cancelled.
                         if (dragging) engine.buttonUp(HidReports.BUTTON_LEFT)
+                        engine.touchEnd()
+                        onTouch(false)
                     }
 
-                    engine.touchEnd()
-                    onTouch(false)
                     scope.launch { glass.release() }
                     val quick = lastMs - startMs <= TAP_MAX_MS && travel < TAP_SLOP_PX * maxPointers
                     if (maxPointers >= 3 && !swiped) {
@@ -262,24 +265,27 @@ private fun ScrollStrip(engine: HidEngine, settings: Settings, onTouch: (Boolean
                     engine.touchStart()
                     var lastY = down.position.y
                     var held = true
-                    while (held) {
-                        val ev = awaitPointerEvent()
-                        val ch = ev.changes.firstOrNull { it.id == down.id }
-                        if (ch == null || !ch.pressed) {
-                            held = false
-                        } else {
-                            val dy = ch.position.y - lastY
-                            lastY = ch.position.y
-                            if (dy != 0f) {
-                                offset = (offset + dy) % tick
-                                if (engine.scrollBy(0f, dy) > 0 && settings.hapticScroll) haptics.play(Haptic.Tick, level)
+                    try {
+                        while (held) {
+                            val ev = awaitPointerEvent()
+                            val ch = ev.changes.firstOrNull { it.id == down.id }
+                            if (ch == null || !ch.pressed) {
+                                held = false
+                            } else {
+                                val dy = ch.position.y - lastY
+                                lastY = ch.position.y
+                                if (dy != 0f) {
+                                    offset = (offset + dy) % tick
+                                    if (engine.scrollBy(0f, dy) > 0 && settings.hapticScroll) haptics.play(Haptic.Tick, level)
+                                }
+                                ch.consume()
                             }
-                            ch.consume()
                         }
+                    } finally {
+                        pressed = false
+                        engine.touchEnd()
+                        onTouch(false)
                     }
-                    pressed = false
-                    engine.touchEnd()
-                    onTouch(false)
                 }
             },
         contentAlignment = Alignment.Center,

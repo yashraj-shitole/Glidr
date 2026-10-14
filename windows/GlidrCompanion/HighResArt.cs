@@ -19,7 +19,10 @@ static partial class HighResArt
     const string RegKey = @"Software\GlidrCompanion";
     static readonly string[] Browsers = { "chrome", "msedge", "brave", "vivaldi", "opera", "firefox" };
     static readonly HttpClient Http = CreateClient();
+    // Small and bounded: the companion runs all day and each entry can be a ~1 MB image.
+    const int CacheMax = 24;
     static readonly Dictionary<string, byte[]?> Cache = new();
+    static readonly Queue<string> CacheOrder = new();
 
     [GeneratedRegex(@"(?:[?&]v=|youtu\.be/|/shorts/|/embed/)([A-Za-z0-9_-]{11})")]
     private static partial Regex VideoId();
@@ -52,11 +55,13 @@ static partial class HighResArt
     /// <summary>Returns full-size artwork bytes (JPEG/PNG) for the track, or null if nothing better was found.</summary>
     public static async Task<byte[]?> FindAsync(string title, string artist)
     {
-        if (!Enabled || string.IsNullOrWhiteSpace(title)) return null;
+        // A title with no letters or digits normalises to "", which every search result would "contain".
+        if (!Enabled || Norm(title).Length == 0) return null;
         var key = Norm(title) + "|" + Norm(artist);
         if (Cache.TryGetValue(key, out var cached)) return cached;
 
         byte[]? result = null;
+        var failed = false;
         try
         {
             string? id = null;
@@ -71,11 +76,20 @@ static partial class HighResArt
         catch (Exception e)
         {
             Log.Write($"hq art: failed: {e.Message}");
+            failed = true;
         }
 
         if (result == null) Log.Write($"hq art: nothing better found for '{title}'");
-        Cache[key] = result;
+        // Remember real answers only; a network error should be retried the next time this track plays.
+        if (!failed) Remember(key, result);
         return result;
+    }
+
+    static void Remember(string key, byte[]? value)
+    {
+        if (!Cache.ContainsKey(key)) CacheOrder.Enqueue(key);
+        Cache[key] = value;
+        while (CacheOrder.Count > CacheMax) Cache.Remove(CacheOrder.Dequeue());
     }
 
     // ---- 1. active tab ------------------------------------------------------------------------------------
@@ -140,8 +154,8 @@ static partial class HighResArt
             if (id == null || t == null) continue;
 
             var nt = Norm(t);
-            var titleOk = nt == wantTitle || nt.Contains(wantTitle) || wantTitle.Contains(nt);
-            var channelOk = wantChannel.Length == 0 || channel.Contains(wantChannel) || wantChannel.Contains(channel);
+            var titleOk = Matches(nt, wantTitle);
+            var channelOk = wantChannel.Length == 0 || Matches(channel, wantChannel);
             if (titleOk && channelOk)
             {
                 Log.Write($"hq art: YouTube match '{t}' ({channel}) -> {id}");
@@ -220,8 +234,7 @@ static partial class HighResArt
             var name = r.TryGetProperty("trackName", out var n) ? n.GetString() : null;
             var art = r.TryGetProperty("artworkUrl100", out var a) ? a.GetString() : null;
             if (name == null || art == null) continue;
-            var nn = Norm(name);
-            if (!(nn == wantTitle || nn.Contains(wantTitle) || wantTitle.Contains(nn))) continue;
+            if (!Matches(Norm(name), wantTitle)) continue;
 
             foreach (var size in new[] { "1400x1400bb", "1000x1000bb", "600x600bb" })
             {
@@ -247,6 +260,9 @@ static partial class HighResArt
 
     static string StripChannelNoise(string? s) =>
         Regex.Replace(s ?? "", @"\s*-\s*Topic$|VEVO$", "", RegexOptions.IgnoreCase).Trim();
+
+    /// <summary>Either normalised string contains the other. An empty side never matches (it is contained in everything).</summary>
+    static bool Matches(string a, string b) => a.Length > 0 && b.Length > 0 && (a.Contains(b) || b.Contains(a));
 
     /// <summary>Lower-case letters and digits only, so punctuation and spacing differences do not matter.</summary>
     static string Norm(string? s) => Regex.Replace((s ?? "").ToLowerInvariant(), @"[^\p{L}\p{N}]+", "");
