@@ -177,6 +177,15 @@
     upd(); if (!reduce) setInterval(upd, 140);
   }
 
+  /* ---------- launch film: starts on click (so it can have sound), controls appear once it plays ---------- */
+  (function () {
+    var v = $('#film'), btn = $('#playBtn'), box = $('#player');
+    if (!v || !btn) return;
+    btn.addEventListener('click', function () { v.controls = true; var p = v.play(); if (p && p.catch) p.catch(function () { v.controls = true; }); });
+    v.addEventListener('play', function () { box.classList.add('playing'); });
+    v.addEventListener('ended', function () { box.classList.remove('playing'); v.controls = false; v.currentTime = 0; });
+  })();
+
   /* ---------- downloads: always the newest release ----------
      Every [data-asset] link starts as the repo's releases/latest page (correct with no JavaScript, opens in a new tab).
      Once GitHub answers, it becomes the direct file URL of the newest release. The answer is cached for 15 minutes to stay

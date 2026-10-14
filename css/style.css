@@ -266,6 +266,19 @@ h1 .ch { display: inline-block; white-space: pre; opacity: 0; transform: transla
 .marks img + img { transform: rotateY(-1080deg) scale(.2); transition-delay: .12s; }
 .marks.in img { transform: none; opacity: 1; }
 
+/* ---------- launch film ---------- */
+.watch { padding-bottom: 130px; }
+.player { position: relative; aspect-ratio: 16 / 9; border-radius: 32px; overflow: hidden; background: #000; border: 1px solid var(--line); box-shadow: 0 50px 140px -50px rgba(var(--ac-rgb), .4); }
+.player video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+.play { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; border: 0; cursor: pointer; color: #f3f2ee; font: inherit;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(0,0,0,.05), rgba(0,0,0,.55)); transition: opacity .35s, background-color .3s; }
+.play .disc { width: 104px; height: 104px; border-radius: 50%; display: grid; place-items: center; background: var(--ac); color: var(--ink); padding-left: 6px;
+  box-shadow: 0 0 0 0 rgba(var(--ac-rgb), .5), 0 20px 70px -10px rgba(var(--ac-rgb), .7); transition: transform .5s var(--spring); animation: halo 2.6s ease-out infinite; }
+.play:hover .disc { transform: scale(1.1); } .play:active .disc { transform: scale(.94); transition-duration: .07s; }
+.play .lbl { font-size: 12px; letter-spacing: .24em; font-weight: 600; text-shadow: 0 1px 12px rgba(0,0,0,.6); }
+@keyframes halo { 70% { box-shadow: 0 0 0 26px rgba(var(--ac-rgb), 0), 0 20px 70px -10px rgba(var(--ac-rgb), .7); } 100% { box-shadow: 0 0 0 0 rgba(var(--ac-rgb), 0), 0 20px 70px -10px rgba(var(--ac-rgb), .7); } }
+.player.playing .play { opacity: 0; pointer-events: none; }
+
 /* ---------- footer ---------- */
 .foot { border-top: 1px solid var(--line); background: var(--bg); padding: 40px 0 56px; }
 .foot-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 22px; }
@@ -301,6 +314,7 @@ h1 .ch { display: inline-block; white-space: pre; opacity: 0; transform: transla
   .dl-grid { grid-template-columns: 1fr; } .side-center { padding-top: 120px; align-items: flex-start; }
   .brand span { display: none; } .nav { height: 56px; }
   .scroll-cue { display: none; }
+  .player { border-radius: 20px; } .play .disc { width: 76px; height: 76px; }
   h2.mid { max-width: none; margin-bottom: 36px; }
 }
 
