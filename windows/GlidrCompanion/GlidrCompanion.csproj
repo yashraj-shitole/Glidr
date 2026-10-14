@@ -11,7 +11,7 @@
     <AssemblyName>GlidrCompanion</AssemblyName>
     <RootNamespace>GlidrCompanion</RootNamespace>
     <ApplicationIcon>Assets\glidr.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Product>Glidr Companion</Product>
     <Company>Glidr</Company>
     <InvariantGlobalization>true</InvariantGlobalization>

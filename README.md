@@ -9,9 +9,9 @@ It uses the Bluetooth HID Device profile, so the PC needs no software for basic 
 | PC companion (tray, optional) | `windows/` | .NET 8 tray app, Windows media session, Bluetooth RFCOMM |
 | Docs and design | `docs/` | [Play Store checklist](docs/play-store-checklist.md), store icons, [design mockup](docs/design/) |
 
-## Download (v1.0.0)
-- **Phone app:** [Glidr-1.0.0.apk](https://github.com/yashraj-shitole/Glidr/releases/download/v1.0.0/Glidr-1.0.0.apk). Android 10 or newer; allow installing from your browser or file manager.
-- **PC app (optional):** [GlidrCompanion.exe](https://github.com/yashraj-shitole/Glidr/releases/download/v1.0.0/GlidrCompanion.exe). Shows what is playing on the PC in Glidr's Media screen. Needs the .NET 8 Desktop Runtime. You can also install it from the phone: Settings, Sync media, Install PC app.
+## Download (v1.1.0)
+- **Phone app:** [Glidr-1.1.0.apk](https://github.com/yashraj-shitole/Glidr/releases/download/v1.1.0/Glidr-1.1.0.apk). Android 10 or newer; allow installing from your browser or file manager.
+- **PC app (optional):** [GlidrCompanion.exe](https://github.com/yashraj-shitole/Glidr/releases/download/v1.1.0/GlidrCompanion.exe). Shows what is playing on the PC in Glidr's Media screen. Needs the .NET 8 Desktop Runtime. You can also install it from the phone: Settings, Sync media, Install PC app.
 
 All downloads are on the [Releases page](https://github.com/yashraj-shitole/Glidr/releases). The APK is signed with a debug key.
 
