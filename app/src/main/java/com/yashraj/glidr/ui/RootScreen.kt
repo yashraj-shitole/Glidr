@@ -1,5 +1,9 @@
 package com.yashraj.glidr.ui
 
+import android.content.Intent
+import androidx.core.net.toUri
+import androidx.compose.ui.platform.LocalContext
+import com.yashraj.glidr.update.UpdateState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -65,6 +69,8 @@ fun RootScreen(
     val awake by vm.keepAwake.collectAsStateWithLifecycle()
     val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
     val companion by vm.companionState.collectAsStateWithLifecycle()
+    val update by vm.update.collectAsStateWithLifecycle()
+    val ctx = LocalContext.current
     var page by rememberSaveable { mutableIntStateOf(Page.Pad.ordinal) }
     var kb by rememberSaveable { mutableStateOf(false) }
     var devices by remember { mutableStateOf<List<PcDevice>?>(null) }
@@ -78,7 +84,10 @@ fun RootScreen(
             Page.Settings -> SettingsScreen(
                 s, companion, conn == ConnectionState.Connected,
                 { done -> vm.engine.runOnPc(companionInstallCommand(COMPANION_DOWNLOAD_URL), done) },
-                vm::update, vm::forgetPc, { page = Page.Pad.ordinal })
+                vm::update, vm::forgetPc, { page = Page.Pad.ordinal },
+                appVersion = vm.appVersion, updateState = update, onCheckUpdate = vm::checkForUpdates,
+                onOpenUpdate = { url -> runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
+            )
             else -> Column(Modifier.fillMaxSize()) {
                 TopBar(
                     label = if (hasBluetoothPermission) connectionLabel(conn, host?.name) else stringResource(R.string.state_need_permission),
@@ -94,6 +103,7 @@ fun RootScreen(
                     },
                     onAwake = onToggleKeepAwake,
                     onSettings = { page = Page.Settings.ordinal },
+                    updateWaiting = update is UpdateState.Available,
                 )
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     if (page == Page.Pad.ordinal) {
@@ -150,7 +160,7 @@ private fun connectionLabel(state: ConnectionState, host: String?): String = whe
 }
 
 @Composable
-private fun TopBar(label: String, ready: Boolean, awakeOn: Boolean, showAwake: Boolean, onPill: () -> Unit, onAwake: () -> Unit, onSettings: () -> Unit) {
+private fun TopBar(label: String, ready: Boolean, awakeOn: Boolean, showAwake: Boolean, onPill: () -> Unit, onAwake: () -> Unit, onSettings: () -> Unit, updateWaiting: Boolean = false) {
     val c = Glidr.colors
     Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         PressBox(onPill, Modifier.height(48.dp), stringResource(R.string.connection_status, label), RoundedCornerShape(24.dp)) {
@@ -161,7 +171,7 @@ private fun TopBar(label: String, ready: Boolean, awakeOn: Boolean, showAwake: B
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (showAwake) RoundIconButton(Ico.Awake, stringResource(R.string.keep_pc_awake), onAwake, active = awakeOn)
-            RoundIconButton(Ico.Settings, stringResource(R.string.settings), onSettings)
+            RoundIconButton(Ico.Settings, stringResource(R.string.settings), onSettings, active = updateWaiting) // lit while an update waits
         }
     }
 }

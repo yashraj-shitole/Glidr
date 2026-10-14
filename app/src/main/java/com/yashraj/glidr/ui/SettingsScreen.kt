@@ -42,10 +42,13 @@ import com.yashraj.glidr.hid.KeyboardLayout
 import com.yashraj.glidr.ui.theme.ACCENT_COLORS
 import com.yashraj.glidr.ui.theme.ACCENT_NAMES
 import com.yashraj.glidr.ui.theme.Glidr
+import com.yashraj.glidr.update.Release
+import com.yashraj.glidr.update.UpdateState
 
 @Composable
 fun SettingsScreen(
     s: Settings, companion: CompanionState, pcConnected: Boolean, onInstallOnPc: (onDone: () -> Unit) -> Boolean, update: ((Settings) -> Settings) -> Unit, onForget: () -> Unit, onBack: () -> Unit,
+    appVersion: String, updateState: UpdateState, onCheckUpdate: () -> Unit, onOpenUpdate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val c = Glidr.colors
@@ -60,6 +63,7 @@ fun SettingsScreen(
             Label(stringResource(R.string.settings), color = c.text, style = Glidr.type.title.copy(fontSize = androidx.compose.ui.unit.TextUnit(24f, androidx.compose.ui.unit.TextUnitType.Sp)))
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 32.dp)) {
+            (updateState as? UpdateState.Available)?.let { UpdateBanner(it.release, onOpenUpdate) }
             Section(stringResource(R.string.pointer)) {
                 SliderRow(stringResource(R.string.sensitivity), "%.1f×".format(s.sensitivity)) {
                     Slider(s.sensitivity, 0.5f..3f, { v -> update { it.copy(sensitivity = v) } }, stringResource(R.string.sensitivity))
@@ -170,6 +174,9 @@ fun SettingsScreen(
                     }
                 }
             }
+            Section(stringResource(R.string.updates)) {
+                UpdateRow(appVersion, updateState, onCheckUpdate)
+            }
             Section(stringResource(R.string.about)) {
                 Pad {
                     Label(stringResource(R.string.privacy_note), color = c.dim, style = Glidr.type.small)
@@ -225,6 +232,50 @@ private fun InstallPcAppDialog(pcConnected: Boolean, onInstallOnPc: (onDone: () 
 }
 
 private enum class InstallPhase { Idle, Typing, Sent, Failed }
+
+/** Shown at the top of Settings while a newer release exists. */
+@Composable
+private fun UpdateBanner(release: Release, onOpen: (String) -> Unit) {
+    val c = Glidr.colors
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(24.dp)).background(c.s1)
+            .border(1.dp, c.accent, RoundedCornerShape(24.dp)).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Label(stringResource(R.string.update_available, release.version), color = c.text, style = Glidr.type.body)
+            Label(stringResource(R.string.update_available_sub), color = c.dim, style = Glidr.type.small)
+        }
+        PressBox({ onOpen(release.downloadUrl) }, Modifier.height(48.dp), stringResource(R.string.download), RoundedCornerShape(24.dp), background = c.accent, border = false) {
+            Label(stringResource(R.string.download), Modifier.padding(horizontal = 18.dp), c.ink)
+        }
+    }
+}
+
+@Composable
+private fun UpdateRow(version: String, state: UpdateState, onCheck: () -> Unit) {
+    val c = Glidr.colors
+    val status = when (state) {
+        UpdateState.Checking -> stringResource(R.string.update_checking)
+        UpdateState.UpToDate -> stringResource(R.string.update_latest)
+        UpdateState.NoReleases -> stringResource(R.string.update_none)
+        UpdateState.ViaStore -> stringResource(R.string.update_via_store)
+        is UpdateState.Available -> stringResource(R.string.update_available, state.release.version)
+        is UpdateState.Failed -> stringResource(R.string.update_failed)
+        UpdateState.Idle -> ""
+    }
+    Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Label(stringResource(R.string.version_label, version), color = c.text, style = Glidr.type.body)
+            if (status.isNotEmpty()) Label(status, color = if (state is UpdateState.Available) c.accentText else c.dim, style = Glidr.type.small)
+        }
+        if (state != UpdateState.ViaStore) {
+            PressBox({ if (state != UpdateState.Checking) onCheck() }, Modifier.height(48.dp), stringResource(R.string.check_updates), RoundedCornerShape(24.dp)) {
+                Label(stringResource(R.string.check_updates), Modifier.padding(horizontal = 18.dp))
+            }
+        }
+    }
+}
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {

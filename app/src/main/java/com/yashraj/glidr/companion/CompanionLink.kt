@@ -14,6 +14,8 @@ import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.ContextCompat
+import com.yashraj.glidr.update.Release
+import com.yashraj.glidr.update.Versions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -62,7 +64,8 @@ fun companionInstallCommand(url: String): String {
  *
  * Protocol: one JSON object per line, UTF-8. `{"t":"np", title, artist, album, app, playing, pos, dur, art?}`
  * (pos and dur in milliseconds, art is a small base64 JPEG sent only when the track changes) or `{"t":"none"}`
- * when nothing is playing.
+ * when nothing is playing. `{"t":"release", v, apk, page}` reports the latest Glidr release the companion found on
+ * GitHub, so the phone hears about updates even when it cannot check itself.
  */
 @SuppressLint("MissingPermission") // guarded by [hasPermission]
 class CompanionLink(context: Context, private val scope: CoroutineScope) {
@@ -75,6 +78,9 @@ class CompanionLink(context: Context, private val scope: CoroutineScope) {
     val peer: StateFlow<String?> = _peer.asStateFlow()
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
     val nowPlaying: StateFlow<NowPlaying?> = _nowPlaying.asStateFlow()
+    private val _release = MutableStateFlow<Release?>(null)
+    /** Latest release as reported by the PC companion (kept after it disconnects). */
+    val release: StateFlow<Release?> = _release.asStateFlow()
 
     private var job: Job? = null
     @Volatile private var server: BluetoothServerSocket? = null
@@ -172,6 +178,14 @@ class CompanionLink(context: Context, private val scope: CoroutineScope) {
             return
         }
         when (o.optString("t")) {
+            "release" -> {
+                val v = o.optString("v").take(32)
+                val page = o.optString("page")
+                val apk = o.optString("apk")
+                if (v.isNotBlank() && Versions.isTrustedLink(page)) {
+                    _release.value = Release(v, apk.takeIf(Versions::isTrustedLink) ?: page, page)
+                }
+            }
             "none" -> {
                 _nowPlaying.value = null
                 lastArt = null

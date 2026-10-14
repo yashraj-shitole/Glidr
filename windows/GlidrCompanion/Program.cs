@@ -15,7 +15,7 @@ static class Program
     }
 }
 
-/// <summary>Tray icon with a status line, "Start with Windows" and Quit. There is no window.</summary>
+/// <summary>Tray icon with a status line, "Start with Windows", update check and Quit. There is no window.</summary>
 sealed class TrayContext : ApplicationContext
 {
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -24,8 +24,14 @@ sealed class TrayContext : ApplicationContext
     readonly NotifyIcon _tray;
     readonly ToolStripMenuItem _status;
     readonly ToolStripMenuItem _startup;
+    readonly ToolStripMenuItem _update;
+    readonly ToolStripMenuItem _checkUpdate;
     readonly PhoneLink _link = new();
     readonly MediaWatcher _watcher;
+    readonly SynchronizationContext _ui;
+    readonly System.Windows.Forms.Timer _updateTimer = new() { Interval = (int)TimeSpan.FromHours(24).TotalMilliseconds };
+    GlidrRelease? _latest;
+    string? _notified;
 
     public TrayContext()
     {
@@ -34,20 +40,80 @@ sealed class TrayContext : ApplicationContext
         _startup.CheckedChanged += (_, _) => SetStartup(_startup.Checked);
         var hq = new ToolStripMenuItem("High-quality cover art (looks up thumbnails online)") { CheckOnClick = true, Checked = HighResArt.Enabled };
         hq.CheckedChanged += (_, _) => HighResArt.Enabled = hq.Checked;
+        _update = new ToolStripMenuItem("") { Visible = false };
+        _update.Click += (_, _) => OpenUrl(_latest?.ExeUrl ?? _latest?.Page);
+        _checkUpdate = new ToolStripMenuItem($"Check for updates (version {Updates.Current})");
+        _checkUpdate.Click += (_, _) => _ = CheckUpdatesAsync(manual: true);
         var openLog = new ToolStripMenuItem("Open log");
         openLog.Click += (_, _) => OpenLog();
         var quit = new ToolStripMenuItem("Quit Glidr Companion");
         quit.Click += (_, _) => ExitThread();
 
         var menu = new ContextMenuStrip();
-        menu.Items.AddRange(new ToolStripItem[] { _status, new ToolStripSeparator(), _startup, hq, openLog, quit });
+        menu.Items.AddRange(new ToolStripItem[] { _status, _update, new ToolStripSeparator(), _startup, hq, _checkUpdate, openLog, quit });
+        // Creating the menu installed the WinForms context on this (UI) thread. Link and watcher events arrive on
+        // background threads and are posted here before they touch any control.
+        _ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
 
         _tray = new NotifyIcon { Icon = LoadIcon(), Text = "Glidr Companion", ContextMenuStrip = menu, Visible = true };
+        _tray.BalloonTipClicked += (_, _) => OpenUrl(_latest?.ExeUrl ?? _latest?.Page);
 
-        _link.StatusChanged += s => SetStatus(s);
+        _link.StatusChanged += s => _ui.Post(_ => SetStatus(s), null);
+        // A newly connected phone hears about the latest release too, so it can update even without internet.
+        _link.Connected += () => { var r = _latest; if (r != null) _ = _link.SendLineAsync(Updates.PhoneMessage(r)); };
         _watcher = new MediaWatcher(_link);
         _link.Start();
         _ = StartWatcherAsync();
+
+        _updateTimer.Tick += (_, _) => _ = CheckUpdatesAsync(manual: false);
+        _updateTimer.Start();
+        _ = Task.Delay(TimeSpan.FromSeconds(15)).ContinueWith(_ => _ui.Post(_ => _ = CheckUpdatesAsync(manual: false), null));
+    }
+
+    /// <summary>Runs on the UI thread (the awaits resume there).</summary>
+    async Task CheckUpdatesAsync(bool manual)
+    {
+        _checkUpdate.Enabled = false;
+        _checkUpdate.Text = "Checking for updates…";
+        try
+        {
+            var r = await Updates.LatestAsync();
+            if (r == null)
+            {
+                if (manual) _tray.ShowBalloonTip(4000, "Glidr Companion", "No release has been published yet.", ToolTipIcon.Info);
+                return;
+            }
+            _latest = r;
+            if (_link.IsConnected) _ = _link.SendLineAsync(Updates.PhoneMessage(r));
+            var newer = Updates.Compare(r.Version, Updates.Current) > 0;
+            _update.Visible = newer;
+            _update.Text = $"Download update {r.Version}";
+            if (newer && (manual || _notified != r.Version))
+            {
+                _notified = r.Version;
+                _tray.ShowBalloonTip(8000, "Glidr Companion update", $"Version {r.Version} is available. Click to download it.", ToolTipIcon.Info);
+            }
+            else if (!newer && manual)
+            {
+                _tray.ShowBalloonTip(4000, "Glidr Companion", $"You have the latest version ({Updates.Current}).", ToolTipIcon.Info);
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Write($"update check failed: {e.Message}");
+            if (manual) _tray.ShowBalloonTip(4000, "Glidr Companion", "Could not check for updates. Are you online?", ToolTipIcon.Warning);
+        }
+        finally
+        {
+            _checkUpdate.Enabled = true;
+            _checkUpdate.Text = $"Check for updates (version {Updates.Current})";
+        }
+    }
+
+    static void OpenUrl(string? url)
+    {
+        if (url == null || !url.StartsWith("https://github.com/", StringComparison.Ordinal)) return;
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
 
     async Task StartWatcherAsync()
@@ -101,6 +167,7 @@ sealed class TrayContext : ApplicationContext
 
     protected override void ExitThreadCore()
     {
+        _updateTimer.Dispose();
         _tray.Visible = false;
         _tray.Dispose();
         _watcher.Dispose();

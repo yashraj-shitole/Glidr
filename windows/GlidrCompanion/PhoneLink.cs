@@ -117,11 +117,18 @@ sealed class PhoneLink : IDisposable
             var device = await BluetoothDevice.FromIdAsync(info.Id);
             if (device == null || !tried.Add(device.BluetoothAddress)) continue;
             if (device.ConnectionStatus != BluetoothConnectionStatus.Connected) continue;
+            // Only something that may be a phone can run Glidr. Querying headphones, mice or controllers for the
+            // service on every pass is needless radio traffic and can make Bluetooth audio stutter.
+            if (!MayBePhone(device)) continue;
             var s = await TryDeviceAsync(device);
             if (s != null) return s;
         }
         return null;
     }
+
+    /// <summary>Phones, tablets (some report Computer) and devices that do not say what they are.</summary>
+    static bool MayBePhone(BluetoothDevice d) => d.ClassOfDevice?.MajorClass is null
+        or BluetoothMajorClass.Phone or BluetoothMajorClass.Computer or BluetoothMajorClass.Miscellaneous;
 
     static async Task<RfcommDeviceService?> TryDeviceAsync(BluetoothDevice? device)
     {

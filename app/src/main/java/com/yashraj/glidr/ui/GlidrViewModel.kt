@@ -9,10 +9,18 @@ import com.yashraj.glidr.hid.HidEngine
 import com.yashraj.glidr.hid.KeyboardLayout
 import com.yashraj.glidr.hid.PcDevice
 import com.yashraj.glidr.service.GlidrService
+import com.yashraj.glidr.update.GitHubReleases
+import com.yashraj.glidr.update.RELEASES_REPO
+import com.yashraj.glidr.update.UpdateState
+import com.yashraj.glidr.update.Versions
+import com.yashraj.glidr.update.appVersion
+import com.yashraj.glidr.update.installedFromPlay
 import com.yashraj.glidr.voice.AndroidSttEngine
 import com.yashraj.glidr.voice.SttEngine
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -27,6 +35,33 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
 
     val settings: StateFlow<Settings> = app.settings.flow
         .stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
+
+    // ------------------------------------------------------------------ updates
+
+    val appVersion: String = appVersion(app)
+    private val fromStore = installedFromPlay(app)
+    private val checked = MutableStateFlow<UpdateState>(UpdateState.Idle)
+
+    /** The phone's own GitHub check, overridden by a newer release the PC companion reported. */
+    val update: StateFlow<UpdateState> = combine(checked, app.companion.release) { own, reported ->
+        val viaPc = reported?.takeIf { Versions.compare(it.version, appVersion) > 0 }
+        when {
+            fromStore -> UpdateState.ViaStore
+            viaPc == null -> own
+            own is UpdateState.Available && Versions.compare(own.release.version, viaPc.version) >= 0 -> own
+            else -> UpdateState.Available(viaPc)
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, UpdateState.Idle)
+
+    fun checkForUpdates() {
+        if (fromStore || checked.value == UpdateState.Checking) return
+        checked.value = UpdateState.Checking
+        viewModelScope.launch { checked.value = GitHubReleases.check(RELEASES_REPO, appVersion) }
+    }
+
+    init {
+        checkForUpdates() // once per app start
+    }
 
     init {
         viewModelScope.launch {

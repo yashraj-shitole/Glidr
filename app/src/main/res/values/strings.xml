@@ -81,7 +81,18 @@
     <string name="reduce_motion">Reduce motion</string>
     <string name="reduce_motion_sub">Turns off animations</string>
     <string name="about">About</string>
-    <string name="privacy_note">Glidr sends your touch and key input only to the PC you choose, over Bluetooth. It has no accounts, no ads, no analytics and no internet access.</string>
+    <string name="privacy_note">Glidr sends your touch and key input only to the PC you choose, over Bluetooth. It has no accounts, no ads and no analytics. Its only internet use is asking GitHub whether a newer version exists.</string>
+    <string name="updates">Updates</string>
+    <string name="version_label">Version %1$s</string>
+    <string name="check_updates">Check</string>
+    <string name="update_available">Version %1$s is available</string>
+    <string name="update_available_sub">Download the new APK and install it over this one. Your settings stay.</string>
+    <string name="download">Download</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_latest">Up to date</string>
+    <string name="update_none">No releases published yet</string>
+    <string name="update_failed">Could not check. Are you online?</string>
+    <string name="update_via_store">Updates come from Google Play</string>
 
     <string name="notif_connected">Connected to %1$s</string>
     <string name="notif_waiting">Waiting for your PC</string>
