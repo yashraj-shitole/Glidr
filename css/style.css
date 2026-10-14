@@ -107,6 +107,8 @@ h1 em, h2 em { font-style: normal; color: var(--act); }
 }
 .btn img { border-radius: 6px; }
 .btn small { font-weight: 500; opacity: .6; }
+.ver { font: 600 12px "Geist Mono", monospace; opacity: .62; margin-left: 2px; }
+.ver:empty { display: none; }
 .btn:active { transform: scale(.95) !important; transition-duration: .07s; }
 .btn-primary { background: var(--ac); color: var(--ink); box-shadow: 0 0 0 0 rgba(var(--ac-rgb), .4); }
 .btn-primary:hover { box-shadow: 0 10px 50px -8px rgba(var(--ac-rgb), .65); }

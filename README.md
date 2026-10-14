@@ -28,12 +28,15 @@ static host (GitHub Pages, Vercel, Netlify).
 
 ## Download links
 
-The buttons point straight at the v1.0.0 release files, so the browser downloads them directly (same tab):
+Download buttons always give the newest release, with nothing to edit when you publish one:
 
-* Glidr: `Glidr-1.0.0.apk` and `GlidrCompanion.exe`
-* Glidr Screen: `GlidrScreen-1.0.0.apk` and `GlidrScreen-1.0.0-win-x64.zip`
+* Each button starts as the repo's `releases/latest` page (opens in a new tab), so it is correct even without JavaScript.
+* On load, `js/ui.js` asks the GitHub API for the latest release of each repo and turns the button into the direct file link
+  (same tab), then shows the version tag. Phone: the `.apk`. PC: an `.exe` if the release has one, otherwise the `win` `.zip`.
+* The answer is cached for 15 minutes per visitor (the unauthenticated API allows 60 requests an hour per IP). If the lookup
+  fails, the buttons stay on `releases/latest`.
 
-Links that open a GitHub page (repos, release lists) and the portfolio open in a new tab. When you publish a new version,
-search `index.html` for `v1.0.0` and update the four file names.
+To add a button, give the link `data-repo="owner/name"` and `data-asset="apk"` or `"pc"`. Links to GitHub pages and the
+portfolio open in a new tab.
 
 Built by [Yashraj Shitole](https://yashrajshitole.in).

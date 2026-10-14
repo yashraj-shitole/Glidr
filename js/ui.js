@@ -177,6 +177,46 @@
     upd(); if (!reduce) setInterval(upd, 140);
   }
 
+  /* ---------- downloads: always the newest release ----------
+     Every [data-asset] link starts as the repo's releases/latest page (correct with no JavaScript, opens in a new tab).
+     Once GitHub answers, it becomes the direct file URL of the newest release. The answer is cached for 15 minutes to stay
+     inside the unauthenticated API limit; if the lookup fails the links simply stay on releases/latest. */
+  (function () {
+    var links = $$('a[data-asset]');
+    if (!links.length || !window.fetch) return;
+    var repos = {};
+    links.forEach(function (a) { repos[a.dataset.repo] = true; });
+    var pick = {
+      apk: function (n) { return /\.apk$/i.test(n); },
+      // the PC build: an installer .exe if there is one, otherwise the Windows .zip
+      pc: function (n) { return /\.exe$/i.test(n) || /win.*\.zip$/i.test(n); }
+    };
+    function apply(repo, rel) {
+      var assets = rel.assets || [];
+      links.filter(function (a) { return a.dataset.repo === repo; }).forEach(function (a) {
+        var hit = assets.filter(function (x) { return pick[a.dataset.asset](x.name); })
+          .sort(function (x, y) { return (/\.exe$/i.test(y.name) ? 1 : 0) - (/\.exe$/i.test(x.name) ? 1 : 0); })[0];
+        if (!hit) return;                                  // leave the releases page as the target
+        a.href = hit.browser_download_url; a.removeAttribute('target'); a.removeAttribute('rel');
+        a.title = hit.name;
+      });
+      $$('[data-ver="' + repo + '"]').forEach(function (v) { v.textContent = rel.tag_name; });
+    }
+    Object.keys(repos).forEach(function (repo) {
+      var key = 'glidr-rel-' + repo, hit = null;
+      try { var c = JSON.parse(sessionStorage.getItem(key) || 'null'); if (c && Date.now() - c.t < 15 * 60 * 1000) hit = c.rel; } catch (e) {}
+      if (hit) return apply(repo, hit);
+      fetch('https://api.github.com/repos/' + repo + '/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (rel) {
+          var slim = { tag_name: rel.tag_name, assets: (rel.assets || []).map(function (x) { return { name: x.name, browser_download_url: x.browser_download_url }; }) };
+          try { sessionStorage.setItem(key, JSON.stringify({ t: Date.now(), rel: slim })); } catch (e) {}
+          apply(repo, slim);
+        })
+        .catch(function () { /* keep the releases/latest fallback */ });
+    });
+  })();
+
   /* ---------- decorative QR-style pattern (not a real code) ---------- */
   var qr = $('#qr');
   if (qr) {
