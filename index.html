@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-accent="volt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Glidr and Glidr Screen</title>
+<meta name="description" content="Glidr turns your Android phone into a Bluetooth mouse, keyboard and remote. Glidr Screen puts your whole Windows PC on your phone, from anywhere. Two apps, one launch.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="Glidr and Glidr Screen">
+<meta property="og:description" content="Your phone is now your mouse, and your whole PC screen. Two Android apps, one launch.">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="img/glidr.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="stage" aria-hidden="true"></canvas>
+<div class="grid-bg" aria-hidden="true"></div>
+<div class="spot" aria-hidden="true"></div>
+
+<!-- ============ NAV ============ -->
+<header class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="Glidr and Glidr Screen, top">
+    <img src="img/glidr.svg" alt="" width="28" height="28">
+    <img src="img/glidr-screen.svg" alt="" width="28" height="28" class="brand-2">
+    <span>Glidr</span>
+  </a>
+  <nav class="links" aria-label="Sections">
+    <a href="#glidr">Glidr</a>
+    <a href="#screen">Glidr Screen</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <div class="nav-r">
+    <button class="icon-btn" id="themeBtn" aria-label="Switch between Midnight and Paper theme" title="Midnight / Paper">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <a class="btn btn-primary btn-sm magnetic" href="#download">Get the apps</a>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ============ 0 HERO ============ -->
+<section class="stage-sec hero side-left" data-stage="0" id="hero">
+  <div class="wrap">
+    <div class="copy">
+      <p class="chip"><i class="dot"></i> Two apps · One launch</p>
+      <h1 class="split" aria-label="Your phone is now your mouse, and your whole PC screen.">
+        <span class="line">Your phone is now your <em>mouse</em></span>
+        <span class="line">and your whole PC <em>screen.</em></span>
+      </h1>
+      <p class="lede">Glidr turns your Android phone into a trackpad, keyboard and remote over Bluetooth. Glidr Screen puts your entire Windows PC on your phone, from anywhere you have internet.</p>
+      <div class="cta">
+        <a class="btn btn-primary magnetic" href="#download"><img src="img/glidr.svg" alt="" width="22" height="22"> Get Glidr</a>
+        <a class="btn btn-ghost magnetic" href="#download"><img src="img/glidr-screen.svg" alt="" width="22" height="22"> Get Glidr Screen</a>
+      </div>
+      <p class="fine mono">ANDROID 10+ · WINDOWS 10 / 11 · NO ACCOUNT</p>
+    </div>
+  </div>
+  <div class="scroll-cue mono" aria-hidden="true"><span></span>SCROLL</div>
+</section>
+
+<!-- ticker -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track mono">
+    <span>TAP · CLICK</span><span>2 FINGERS · SCROLL</span><span>3 FINGERS · MIDDLE CLICK</span><span>TAP + DRAG · DRAG</span><span>PINCH · ZOOM</span><span>24 FPS · LIVE</span><span>CTRL + C</span><span>ALT + TAB</span><span>WIN + D</span><span>VOLUME · MEDIA KEYS</span>
+    <span>TAP · CLICK</span><span>2 FINGERS · SCROLL</span><span>3 FINGERS · MIDDLE CLICK</span><span>TAP + DRAG · DRAG</span><span>PINCH · ZOOM</span><span>24 FPS · LIVE</span><span>CTRL + C</span><span>ALT + TAB</span><span>WIN + D</span><span>VOLUME · MEDIA KEYS</span>
+  </div>
+</div>
+
+<!-- ============ 1 GLIDR ============ -->
+<section class="stage-sec side-right" data-stage="1" id="glidr">
+  <div class="wrap">
+    <div class="copy">
+      <p class="eyebrow mono">01 · GLIDR</p>
+      <h2 class="reveal">Your phone is the&nbsp;mouse.</h2>
+      <p class="lede reveal">Glidr uses the Bluetooth HID profile your phone already has, so the PC sees an ordinary mouse and keyboard. Pair once. No software on the PC.</p>
+      <ul class="rows">
+        <li class="reveal"><b class="mono">TRACKPAD</b><span>One finger moves, tap clicks, two fingers scroll, three switch windows. Tuned acceleration curve.</span></li>
+        <li class="reveal"><b class="mono">KEYBOARD</b><span>Full keys, Windows shortcuts and a layer of symbols, in US, UK and DE layouts.</span></li>
+        <li class="reveal"><b class="mono">VOICE</b><span>Dictate, review the text, send it straight to the PC.</span></li>
+        <li class="reveal"><b class="mono">MEDIA</b><span>Play, skip, volume dial. Add the optional PC app to see what is playing.</span></li>
+        <li class="reveal"><b class="mono">KEEP AWAKE</b><span>A tiny nudge on a timer, so the PC never falls asleep mid-meeting.</span></li>
+      </ul>
+      <div class="cta reveal">
+        <a class="btn btn-primary magnetic" href="https://github.com/yashraj-shitole/Glidr/releases/download/v1.0.0/Glidr-1.0.0.apk">Download Glidr · v1.0.0</a>
+        <a class="btn btn-text" href="https://github.com/yashraj-shitole/Glidr">View on GitHub →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2 BRIDGE ============ -->
+<section class="stage-sec bridge" data-stage="2" id="bridge">
+  <div class="wrap center">
+    <p class="eyebrow mono reveal">02 · THE CATCH</p>
+    <h2 class="huge reveal">Bluetooth stops at the <em>next&nbsp;room.</em></h2>
+    <p class="lede reveal">Ten metres, give or take. And you can only control, never see.</p>
+    <h2 class="huge b2 reveal">So we built <span class="ac-text">Glidr&nbsp;Screen.</span></h2>
+  </div>
+</section>
+
+<!-- ============ 3 SCREEN INTRO ============ -->
+<section class="stage-sec side-left" data-stage="3" id="screen">
+  <div class="wrap">
+    <div class="copy">
+      <p class="eyebrow mono">03 · GLIDR SCREEN</p>
+      <h2 class="reveal">Your whole PC.<br>On your phone.<br><span class="ac-text">Anywhere.</span></h2>
+      <p class="lede reveal">Live video of your Windows desktop, 24 frames a second, with a trackpad, keyboard and shortcuts on top. It goes straight from the PC to your phone. There is no media server in the middle.</p>
+      <div class="stats reveal">
+        <div><b class="mono" data-count="24">24</b><span>FPS, hardware decoded</span></div>
+        <div><b class="mono">P2P</b><span>WebRTC, no relay</span></div>
+        <div><b class="mono">0</b><span>accounts</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 SEE ============ -->
+<section class="stage-sec side-right step" data-stage="4" id="see">
+  <div class="wrap">
+    <div class="copy">
+      <p class="eyebrow mono">04 · SEE</p>
+      <h2 class="reveal">See it live.</h2>
+      <p class="lede reveal">Pinch to zoom, drag to pan, tap once to reset. Turn the phone sideways for a full-screen picture. Pick Auto, 540p, 720p or 1440p, always at 24 fps.</p>
+      <p class="pillrow reveal"><span class="pill"><i class="dot"></i>24 fps</span><span class="pill">1440p max</span><span class="pill">Ping and path on screen</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 CONTROL ============ -->
+<section class="stage-sec side-left step" data-stage="5" id="control">
+  <div class="wrap">
+    <div class="copy">
+      <p class="eyebrow mono">05 · CONTROL</p>
+      <h2 class="reveal">Glide, tap,&nbsp;scroll.</h2>
+      <p class="lede reveal">Laptop-style gestures on a trackpad under the picture. Or switch on <b>Direct touch</b> and tap the picture to click that exact spot, like a touchscreen.</p>
+      <p class="pillrow reveal"><span class="pill">Tap · click</span><span class="pill">2-finger tap · right click</span><span class="pill">Tap and drag</span><span class="pill">Natural scrolling</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6 MONITORS ============ -->
+<section class="stage-sec side-right step" data-stage="6" id="monitors">
+  <div class="wrap">
+    <div class="copy">
+      <p class="eyebrow mono">06 · MONITORS</p>
+      <h2 class="reveal">Two screens?<br>One&nbsp;tap.</h2>
+      <p class="lede reveal">Numbered chips on the picture jump straight to a monitor. The Displays sheet draws every screen in its real layout with live previews.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7 BENTO (no 3D) ============ -->
+<section class="stage-sec flat" data-stage="7" id="features">
+  <div class="wrap">
+    <p class="eyebrow mono reveal">07 · EVERYTHING ELSE</p>
+    <h2 class="reveal mid">Small things, done&nbsp;properly.</h2>
+
+    <div class="bento">
+      <article class="card tilt span2 reveal" id="tryPad">
+        <p class="eyebrow mono sm">TRY IT · TRACKPAD</p>
+        <h3>Feel the pad.</h3>
+        <p class="dim">Move over it. Click it. This is how the real one glows and ripples.</p>
+        <div class="pad" id="demoPad"><span class="padhint mono">TAP CLICK · 2 FINGERS SCROLL · 3 FINGERS SWITCH</span><i class="strip"></i></div>
+      </article>
+
+      <article class="card tilt reveal">
+        <p class="eyebrow mono sm">SHORTCUTS</p>
+        <h3>One tap, whole combo.</h3>
+        <div class="sc-grid" id="scGrid">
+          <button class="sc" data-k="Ctrl C"><b>Copy</b><span class="kcs"><i class="kc">Ctrl</i><i class="kc">C</i></span></button>
+          <button class="sc" data-k="Ctrl V"><b>Paste</b><span class="kcs"><i class="kc">Ctrl</i><i class="kc">V</i></span></button>
+          <button class="sc" data-k="Alt Tab"><b>Switch</b><span class="kcs"><i class="kc">Alt</i><i class="kc">Tab</i></span></button>
+          <button class="sc" data-k="Win D"><b>Desktop</b><span class="kcs"><i class="kc">Win</i><i class="kc">D</i></span></button>
+        </div>
+      </article>
+
+      <article class="card tilt reveal">
+        <p class="eyebrow mono sm">ANY LANGUAGE</p>
+        <h3>Type in yours.</h3>
+        <p class="dim">Sent as Unicode text, so it is not limited by the PC's keyboard layout.</p>
+        <div class="type mono" id="typeDemo" aria-live="off"><span id="typeText"></span><i class="caret"></i></div>
+      </article>
+
+      <article class="card tilt reveal">
+        <p class="eyebrow mono sm">MONITORS</p>
+        <h3>Jump between screens.</h3>
+        <div class="mons" id="monDemo">
+          <button class="mon on" data-i="0"><i></i><span class="mono">1</span></button>
+          <button class="mon" data-i="1"><i></i><span class="mono">2</span></button>
+          <button class="mon" data-i="2"><i></i><span class="mono">3</span></button>
+        </div>
+        <p class="mono dim sm" id="monLabel">VIEWING DISPLAY 1 · 1920 × 1080</p>
+      </article>
+
+      <article class="card tilt reveal">
+        <p class="eyebrow mono sm">LIVE</p>
+        <h3>24 frames a second.</h3>
+        <div class="spark"><svg viewBox="0 0 300 80" preserveAspectRatio="none" aria-hidden="true"><path id="sparkPath" d="" fill="none" stroke="var(--ac)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <p class="mono sm dim"><b id="fpsNum" class="fps">24</b> FPS · <span id="pingNum">14</span> MS · DIRECT</p>
+      </article>
+
+      <article class="card tilt span2 reveal">
+        <p class="eyebrow mono sm">MAKE IT YOURS</p>
+        <h3>Midnight or Paper. Four accents.</h3>
+        <p class="dim">The same palette runs through both apps and this page. Try it, the whole page changes.</p>
+        <div class="yours">
+          <div class="seg" role="group" aria-label="Theme">
+            <button data-theme-set="dark" class="on">Midnight</button>
+            <button data-theme-set="light">Paper</button>
+          </div>
+          <div class="swatches" role="group" aria-label="Accent colour">
+            <button class="sw volt on" data-accent-set="volt" aria-label="Volt"></button>
+            <button class="sw ember" data-accent-set="ember" aria-label="Ember"></button>
+            <button class="sw sky" data-accent-set="sky" aria-label="Sky"></button>
+            <button class="sw rose" data-accent-set="rose" aria-label="Rose"></button>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8 HOW ============ -->
+<section class="stage-sec flat" data-stage="8" id="how">
+  <div class="wrap">
+    <p class="eyebrow mono reveal">08 · SET UP</p>
+    <h2 class="reveal mid">Scan once. Then it's <span class="ac-text">yours.</span></h2>
+    <ol class="steps">
+      <li class="card tilt reveal"><b class="mono">01</b><h3>Install on both</h3><p class="dim">The phone app on Android. The tray app on your Windows PC.</p></li>
+      <li class="card tilt reveal">
+        <b class="mono">02</b><h3>Scan the QR</h3><p class="dim">On the PC choose <i>Pair a new phone</i>. On the phone tap <i>Scan QR</i>, or type the code.</p>
+        <svg class="qr" viewBox="0 0 21 21" aria-hidden="true" id="qr"></svg>
+      </li>
+      <li class="card tilt reveal"><b class="mono">03</b><h3>Connect</h3><p class="dim">Pick the PC and tap Connect. Same Wi-Fi or any other network, and it reconnects by itself.</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ 9 PRIVACY ============ -->
+<section class="stage-sec flat" data-stage="9" id="privacy">
+  <div class="wrap">
+    <p class="eyebrow mono reveal">09 · PRIVACY</p>
+    <h2 class="reveal mid">Direct. Encrypted. <span class="ac-text">No&nbsp;account.</span></h2>
+    <div class="trio">
+      <div class="card tilt reveal"><b class="mono big">DTLS-SRTP</b><p class="dim">Video, mouse and keyboard go phone to PC over WebRTC. No media server, no relay of ours.</p></div>
+      <div class="card tilt reveal"><b class="mono big">AES-256-GCM</b><p class="dim">The pairing key never leaves your two devices. The rendezvous server only passes three sealed setup messages.</p></div>
+      <div class="card tilt reveal"><b class="mono big">YOUR SERVER</b><p class="dim">Rendezvous defaults to ntfy.sh. Point both apps at your own ntfy server for full control.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10 FAQ ============ -->
+<section class="stage-sec flat" data-stage="10" id="faq">
+  <div class="wrap narrow">
+    <p class="eyebrow mono reveal">10 · GOOD TO KNOW</p>
+    <h2 class="reveal mid">Straight answers.</h2>
+    <div class="faq">
+      <details class="reveal"><summary>Do I need both apps?</summary><p>No. Glidr works alone over Bluetooth, with nothing to install on the PC. Glidr Screen is separate: it needs its phone app and the Windows tray app, and shows your PC on your phone.</p></details>
+      <details class="reveal"><summary>Does it work away from home?</summary><p>Glidr Screen is built to connect from any network. Peer to peer can fail when both sides are behind symmetric NAT, which some mobile carriers use. IPv6 normally avoids it, and you can add your own TURN server in the PC settings, at the price of relayed media.</p></details>
+      <details class="reveal"><summary>Windows shows a SmartScreen warning.</summary><p>The PC apps are not code-signed yet, so Windows warns on first run. You can read and build everything from the source on GitHub.</p></details>
+      <details class="reveal"><summary>Can it control the lock screen or admin windows?</summary><p>Windows blocks capture and input for the lock screen, UAC prompts and elevated windows unless the PC app runs as administrator.</p></details>
+      <details class="reveal"><summary>Is there a view-only mode?</summary><p>Yes. Turn off <i>Allow remote control</i> in the PC app and the phone shows a "View only" tag. A separate Sharing switch pauses all connections.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 11 DOWNLOAD ============ -->
+<section class="stage-sec dl side-center" data-stage="11" id="download">
+  <div class="wrap center">
+    <div class="marks reveal" aria-hidden="true"><img src="img/glidr.svg" alt=""><img src="img/glidr-screen.svg" alt=""></div>
+    <p class="eyebrow mono reveal">11 · GET BOTH</p>
+    <h2 class="huge reveal">Get <span class="ac-text">both.</span></h2>
+    <p class="lede reveal">Glidr and Glidr Screen. Your phone is the mouse. Your PC, anywhere.</p>
+    <div class="dl-grid">
+      <article class="card tilt dl reveal">
+        <img src="img/glidr.svg" alt="" width="64" height="64">
+        <h3>Glidr</h3>
+        <p class="dim">Bluetooth mouse, keyboard, media remote and voice. Android 10 or newer.</p>
+        <a class="btn btn-primary magnetic" href="https://github.com/yashraj-shitole/Glidr/releases/download/v1.0.0/Glidr-1.0.0.apk">Phone app · .apk</a>
+        <a class="btn btn-ghost magnetic" href="https://github.com/yashraj-shitole/Glidr/releases/download/v1.0.0/GlidrCompanion.exe">PC companion · .exe <small>(optional)</small></a>
+        <a class="btn btn-text" href="https://github.com/yashraj-shitole/Glidr/releases">All releases →</a>
+      </article>
+      <article class="card tilt dl reveal">
+        <img src="img/glidr-screen.svg" alt="" width="64" height="64">
+        <h3>Glidr Screen</h3>
+        <p class="dim">Your Windows PC live on your phone, with a trackpad on top. Phone app plus Windows tray app.</p>
+        <a class="btn btn-primary magnetic" href="https://github.com/yashraj-shitole/GlidrScreen/releases/latest">Phone app · .apk</a>
+        <a class="btn btn-ghost magnetic" href="https://github.com/yashraj-shitole/GlidrScreen/releases/latest">PC app · Windows</a>
+        <a class="btn btn-text" href="https://github.com/yashraj-shitole/GlidrScreen">View on GitHub →</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div class="foot-brand">
+      <img src="img/glidr.svg" alt="" width="26" height="26"><img src="img/glidr-screen.svg" alt="" width="26" height="26">
+      <span>Glidr · Glidr Screen</span>
+    </div>
+    <p class="mono sm dim">DESIGNED AND BUILT BY <a class="by" href="https://yashrajshitole.in" target="_blank" rel="noopener">YASHRAJ SHITOLE ↗</a></p>
+    <nav class="foot-links mono sm" aria-label="Footer">
+      <a href="https://yashrajshitole.in" target="_blank" rel="noopener">Portfolio</a>
+      <a href="https://github.com/yashraj-shitole/Glidr" target="_blank" rel="noopener">Glidr on GitHub</a>
+      <a href="https://github.com/yashraj-shitole/GlidrScreen" target="_blank" rel="noopener">Glidr Screen on GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="js/three.min.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/scene.js"></script>
+</body>
+</html>
