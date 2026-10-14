@@ -26,6 +26,20 @@ static host (GitHub Pages, Vercel, Netlify).
 | `js/scene.js` | the 3D scene, textures, stage poses (`S` array) |
 | `fonts/`, `img/` | Geist fonts (OFL) and the two app marks |
 
+## Publishing (GitHub Pages)
+
+The live site is served from the **Glidr** repo, branch `gh-pages`: https://yashraj-shitole.github.io/Glidr/
+
+This repo is the source. To publish a change, commit here, then push the same commits to that branch (the app's `main` is never touched):
+
+```
+git push origin main
+git push https://github.com/yashraj-shitole/Glidr.git main:gh-pages
+```
+
+Everything uses relative paths, so it works under the `/Glidr/` sub-path and when opened straight from disk. `media/` holds the
+launch film (faststart MP4, 22 MB, loads only when played) and its poster.
+
 ## Download links
 
 Download buttons always give the newest release, with nothing to edit when you publish one:
