@@ -242,4 +242,59 @@ class HidTest {
         Thread.sleep(150)
         assertEquals(n, t.mouse.size)
     }
+
+    @Test
+    fun heldCtrlRidesOneClickAndIsThenReleased() {
+        val t = FakeTransport()
+        val e = HidEngine(t, CoroutineScope(Dispatchers.Default))
+        e.toggleHeld(HidReports.MOD_CTRL)
+        assertEquals(HidReports.MOD_CTRL, e.heldModifiers.value)
+        e.click(HidReports.BUTTON_LEFT)
+        Thread.sleep(200)
+        // Ctrl down, then the click, then Ctrl up: the PC sees Ctrl held for the whole click.
+        assertEquals(listOf("k", "m", "m", "k"), t.log.toList())
+        assertEquals(HidReports.MOD_CTRL.toByte(), t.keyboard.first()[0])
+        assertEquals(0.toByte(), t.keyboard.last()[0])
+        assertEquals(0, e.heldModifiers.value)
+    }
+
+    @Test
+    fun heldShiftJoinsTheNextKeyPressThenClears() {
+        val t = FakeTransport()
+        val e = HidEngine(t, CoroutineScope(Dispatchers.Default))
+        e.toggleHeld(HidReports.MOD_SHIFT)
+        e.pressKey(0x4A) // Home
+        Thread.sleep(150)
+        val withKey = t.keyboard.first { it[2] == 0x4A.toByte() }
+        assertEquals(HidReports.MOD_SHIFT.toByte(), withKey[0]) // Shift+Home
+        assertEquals(List(8) { 0.toByte() }, t.keyboard.last())
+        assertEquals(0, e.heldModifiers.value)
+    }
+
+    @Test
+    fun typingDropsAHeldModifierFirstAndTogglingTwiceReleases() {
+        val t = FakeTransport()
+        val e = HidEngine(t, CoroutineScope(Dispatchers.Default))
+        e.toggleHeld(HidReports.MOD_ALT)
+        e.toggleHeld(HidReports.MOD_ALT)
+        assertEquals(0, e.heldModifiers.value)
+        assertEquals(0.toByte(), t.keyboard.last()[0])
+        e.toggleHeld(HidReports.MOD_CTRL)
+        e.typeText("a")
+        Thread.sleep(150)
+        assertEquals(0, e.heldModifiers.value)
+        val typed = t.keyboard.first { it[2] == 0x04.toByte() }
+        assertEquals(0.toByte(), typed[0]) // plain "a", not Ctrl+A
+    }
+
+    @Test
+    fun aPinchKeepsAHeldModifierDown() {
+        val t = FakeTransport()
+        val e = HidEngine(t, CoroutineScope(Dispatchers.Unconfined))
+        e.toggleHeld(HidReports.MOD_SHIFT)
+        e.zoomBy(90f)
+        e.zoomEnd()
+        assertEquals(HidReports.MOD_SHIFT.toByte(), t.keyboard.last()[0]) // released Ctrl, still holding Shift
+        assertEquals((HidReports.MOD_SHIFT or HidReports.MOD_CTRL).toByte(), t.keyboard[1][0])
+    }
 }

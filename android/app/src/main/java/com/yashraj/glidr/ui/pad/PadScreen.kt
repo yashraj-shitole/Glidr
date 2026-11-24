@@ -31,6 +31,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -412,6 +415,51 @@ fun MouseButtons(engine: HidEngine, settings: Settings, modifier: Modifier = Mod
             }
         }
     }
+}
+
+/**
+ * Ctrl / Shift / Alt latches plus Copy, Paste and Undo, one 44dp row above the mouse buttons. A latched modifier is
+ * held on the PC for the next click or key press and then released (see [HidEngine.toggleHeld]), which gives
+ * Ctrl-click, Shift-click range select and Ctrl-scroll without opening the keyboard.
+ */
+@Composable
+fun QuickKeys(engine: HidEngine, settings: Settings, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    val haptics = remember { Haptics(ctx) }
+    val held by engine.heldModifiers.collectAsStateWithLifecycle()
+    val level = if (settings.hapticKeys) settings.haptics else 0
+    val layout = engine.layout
+    fun chord(letter: Char) {
+        val usage = layout.strokeFor(letter)?.usage
+        if (usage == null || !engine.connected) {
+            haptics.play(Haptic.Reject, settings.haptics)
+        } else {
+            engine.pressKey(usage, HidReports.MOD_CTRL)
+            haptics.play(Haptic.Click, level)
+        }
+    }
+    Row(modifier.fillMaxWidth().height(44.dp), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+        for ((label, bit) in listOf("Ctrl" to HidReports.MOD_CTRL, "Shift" to HidReports.MOD_SHIFT, "Alt" to HidReports.MOD_ALT)) {
+            val on = held and bit != 0
+            val desc = stringResource(R.string.quick_key_held, label)
+            QuickChip(label, on, Modifier.weight(1f), Modifier.semantics { contentDescription = desc }.toggleable(value = on, role = Role.Switch) {
+                if (engine.connected) { engine.toggleHeld(bit); haptics.play(Haptic.Tick, level) } else haptics.play(Haptic.Reject, settings.haptics)
+            })
+        }
+        QuickChip(stringResource(R.string.sc_copy), false, Modifier.weight(1f), Modifier.clickable(role = Role.Button) { chord('c') })
+        QuickChip(stringResource(R.string.sc_paste), false, Modifier.weight(1f), Modifier.clickable(role = Role.Button) { chord('v') })
+        QuickChip(stringResource(R.string.sc_undo), false, Modifier.weight(1f), Modifier.clickable(role = Role.Button) { chord('z') })
+    }
+}
+
+@Composable
+private fun QuickChip(label: String, on: Boolean, modifier: Modifier, interaction: Modifier) {
+    val c = Glidr.colors
+    Box(
+        modifier.fillMaxHeight().clip(RoundedCornerShape(Radius.key)).background(if (on) c.accent else c.s2)
+            .border(1.dp, if (on) c.accent else c.line, RoundedCornerShape(Radius.key)).then(interaction),
+        contentAlignment = Alignment.Center,
+    ) { Label(label, color = if (on) c.ink else c.text, style = Glidr.type.small, maxLines = 1) }
 }
 
 @Composable

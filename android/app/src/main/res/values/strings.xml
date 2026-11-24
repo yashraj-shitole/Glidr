@@ -256,4 +256,8 @@
     <string name="shortcut_media_long">Open Media remote</string>
     <string name="fling_scroll">Momentum scrolling</string>
     <string name="fling_scroll_sub">Scrolling glides on after you lift your fingers</string>
+    <string name="quick_keys">Quick keys bar</string>
+    <string name="quick_keys_sub">Ctrl, Shift, Alt, Copy, Paste and Undo above the buttons</string>
+    <string name="quick_key_held">%1$s held for the next click</string>
+    <string name="space_caret">‹ Space ›</string>
 </resources>

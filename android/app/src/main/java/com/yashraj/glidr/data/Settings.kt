@@ -21,6 +21,7 @@ data class Settings(
     val flingScroll: Boolean = true,
     val tapToClick: Boolean = true,
     val leftHanded: Boolean = false,
+    val quickKeys: Boolean = true,
     val layoutId: String = "us",
     val lightTheme: Boolean = false,
     val accent: Int = 0,
@@ -53,6 +54,7 @@ class SettingsRepository(private val context: Context) {
         val fling = booleanPreferencesKey("fling")
         val tap = booleanPreferencesKey("tap")
         val left = booleanPreferencesKey("left")
+        val quickKeys = booleanPreferencesKey("quick_keys")
         val layout = stringPreferencesKey("layout")
         val light = booleanPreferencesKey("light")
         val accent = intPreferencesKey("accent")
@@ -82,6 +84,7 @@ class SettingsRepository(private val context: Context) {
             flingScroll = p[K.fling] ?: d.flingScroll,
             tapToClick = p[K.tap] ?: d.tapToClick,
             leftHanded = p[K.left] ?: d.leftHanded,
+            quickKeys = p[K.quickKeys] ?: d.quickKeys,
             layoutId = p[K.layout] ?: d.layoutId,
             lightTheme = p[K.light] ?: d.lightTheme,
             accent = p[K.accent] ?: d.accent,
@@ -110,6 +113,7 @@ class SettingsRepository(private val context: Context) {
             p[K.fling] = s.flingScroll
             p[K.tap] = s.tapToClick
             p[K.left] = s.leftHanded
+            p[K.quickKeys] = s.quickKeys
             p[K.layout] = s.layoutId
             p[K.light] = s.lightTheme
             p[K.accent] = s.accent

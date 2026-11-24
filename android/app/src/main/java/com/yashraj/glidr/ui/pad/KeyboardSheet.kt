@@ -81,6 +81,9 @@ private fun keysArea(): Dp = with(LocalDensity.current) { (KEY_HEIGHT.roundToPx(
 private const val REPEAT_DELAY_MS = 400L
 private const val REPEAT_MS = 45L
 
+/** One arrow press per this much horizontal drag on Space. */
+private const val CARET_STEP_DP = 14
+
 /** Holding the mic this long makes it push-to-talk: letting go ends dictation. A shorter tap toggles it. */
 private const val HOLD_TO_TALK_MS = 500L
 
@@ -160,6 +163,17 @@ fun KeyboardSheet(
 
     val area = keysArea()
     val shiftBit = if (shiftLatched) HidReports.MOD_SHIFT else 0
+
+    // Dragging along Space moves the caret one arrow press per step; a latched Shift on the sheet selects as it goes.
+    fun caret(dir: Int) {
+        if (!engine.connected) {
+            haptics.play(Haptic.Reject, settings.haptics)
+            return
+        }
+        engine.pressKey(if (dir < 0) Keys.LEFT else Keys.RIGHT, mods or shiftBit)
+        haptics.play(Haptic.Tick, level)
+    }
+    val caretEnd = { shiftLatched = false; mods = 0 }
     val live = { engine.connected }
     val sheetShape = RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet)
 
@@ -219,7 +233,7 @@ fun KeyboardSheet(
                     } else {
                         Key(",", Modifier.weight(1f)) { typeChar(',') }
                     }
-                    Key(stringResource(R.string.space), Modifier.weight(3.6f), repeat = true, repeatWhile = live) { send(Keys.SPACE) }
+                    Key(stringResource(R.string.space_caret), Modifier.weight(3.6f), stringResource(R.string.space), caret = ::caret, caretEnd = caretEnd) { send(Keys.SPACE) }
                     Key(".", Modifier.weight(1f)) { typeChar('.') }
                     Key("↵", Modifier.weight(1.6f), stringResource(R.string.key_enter), go = true) { send(Keys.ENTER) }
                 }
@@ -282,7 +296,7 @@ fun KeyboardSheet(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                     Key("⇧", Modifier.weight(1.5f), stringResource(R.string.key_shift), on = shiftLatched, fn = true) { shiftLatched = !shiftLatched; haptics.play(Haptic.Tick, level) }
-                    Key(stringResource(R.string.space), Modifier.weight(3.6f), repeat = true, repeatWhile = live) { send(Keys.SPACE) }
+                    Key(stringResource(R.string.space_caret), Modifier.weight(3.6f), stringResource(R.string.space), caret = ::caret, caretEnd = caretEnd) { send(Keys.SPACE) }
                     Key("⌫", Modifier.weight(1.5f), stringResource(R.string.key_backspace), fn = true, repeat = true, repeatWhile = live) { send(Keys.BACKSPACE) }
                     Key("↵", Modifier.weight(1.6f), stringResource(R.string.key_enter), go = true) { send(Keys.ENTER) }
                 }
@@ -425,7 +439,8 @@ private fun Meter(level: Float, reversed: Boolean) {
 private fun Key(
     label: String, modifier: Modifier, desc: String? = null,
     on: Boolean = false, fn: Boolean = false, go: Boolean = false,
-    repeat: Boolean = false, repeatWhile: () -> Boolean = { true }, press: () -> Unit,
+    repeat: Boolean = false, repeatWhile: () -> Boolean = { true },
+    caret: ((Int) -> Unit)? = null, caretEnd: () -> Unit = {}, press: () -> Unit,
 ) {
     val c = Glidr.colors
     val fire by rememberUpdatedState(press)
@@ -445,7 +460,46 @@ private fun Key(
                 contentDescription = name
                 onClick(name) { fire(); true }
             }
-            .pointerInput(repeat) {
+            .pointerInput(repeat, caret != null) {
+                if (caret != null) {
+                    // Space: a tap types a space (on release); a horizontal drag moves the caret instead.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        pressed = true
+                        try {
+                            val step = CARET_STEP_DP.dp.toPx()
+                            val slop = viewConfiguration.touchSlop * 2
+                            var dragging = false
+                            var lastX = down.position.x
+                            var acc = 0f
+                            while (true) {
+                                val ev = awaitPointerEvent()
+                                val ch = ev.changes.firstOrNull() ?: break
+                                if (!ch.pressed) {
+                                    if (!dragging) fire() else caretEnd()
+                                    break
+                                }
+                                if (!dragging && kotlin.math.abs(ch.position.x - down.position.x) > slop) {
+                                    dragging = true
+                                    lastX = ch.position.x
+                                }
+                                if (dragging) {
+                                    acc += ch.position.x - lastX
+                                    lastX = ch.position.x
+                                    while (kotlin.math.abs(acc) >= step) {
+                                        val dir = if (acc < 0) -1 else 1
+                                        caret(dir)
+                                        acc -= dir * step
+                                    }
+                                    ch.consume()
+                                }
+                            }
+                        } finally {
+                            pressed = false
+                        }
+                    }
+                    return@pointerInput
+                }
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
                     pressed = true

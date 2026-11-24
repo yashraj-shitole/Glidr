@@ -107,6 +107,7 @@ fun SettingsScreen(
                     SwitchRow(stringResource(R.string.natural_scroll), stringResource(R.string.natural_scroll_sub), s.naturalScroll) { v -> update { it.copy(naturalScroll = v) } }
                     SwitchRow(stringResource(R.string.fling_scroll), stringResource(R.string.fling_scroll_sub), s.flingScroll) { v -> update { it.copy(flingScroll = v) } }
                     SwitchRow(stringResource(R.string.tap_to_click), stringResource(R.string.tap_to_click_sub), s.tapToClick) { v -> update { it.copy(tapToClick = v) } }
+                    SwitchRow(stringResource(R.string.quick_keys), stringResource(R.string.quick_keys_sub), s.quickKeys) { v -> update { it.copy(quickKeys = v) } }
                     SwitchRow(stringResource(R.string.left_handed), stringResource(R.string.left_handed_sub), s.leftHanded) { v -> update { it.copy(leftHanded = v) } }
                 }
                 Section(stringResource(R.string.keyboard)) {

@@ -45,6 +45,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
 
     /** Separate from [keyBuf] so a pinch holding Ctrl never shares a buffer with the keyboard sheet. */
     private val zoomKeyBuf = ByteArray(HidDescriptor.KEYBOARD_SIZE)
+    private val heldKeyBuf = ByteArray(HidDescriptor.KEYBOARD_SIZE)
     private val nudgeBuf = ByteArray(HidDescriptor.MOUSE_SIZE)
     private val nudgeLock = Mutex()
     private val keyLock = Mutex()
@@ -62,6 +63,12 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     private var ticker: ScheduledFuture<*>? = null
     private var lastMoveNs = 0L
     private var flingJob: Job? = null
+
+    private val _held = MutableStateFlow(0)
+
+    /** Modifiers (Ctrl / Shift / Alt bits from [HidReports]) the pad's quick keys are holding down for the PC. */
+    val heldModifiers: StateFlow<Int> = _held.asStateFlow()
+    private var heldIdleJob: Job? = null
 
     /** True while Ctrl is held down for a pinch. Guarded by [lock]. */
     private var zoomCtrl = false
@@ -115,6 +122,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     /** Returns the number of whole scroll detents produced, so the UI can tick. */
     fun scrollBy(dxPx: Float, dyPx: Float): Int {
         // Natural: content follows the fingers (finger up -> wheel down). HID wheel > 0 scrolls up, pan > 0 right.
+        bumpHeld()
         val sign = if (naturalScroll) 1 else -1
         val px = PX_PER_DETENT / scrollSpeed
         // The glide runs on its own thread while a new touch may already be scrolling, so the carry is under the lock.
@@ -174,7 +182,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         synchronized(lock) {
             if (!zoomCtrl) {
                 zoomCtrl = true
-                HidReports.keyboard(zoomKeyBuf, HidReports.MOD_CTRL)
+                HidReports.keyboard(zoomKeyBuf, HidReports.MOD_CTRL or _held.value)
                 transport.sendKeyboard(zoomKeyBuf)
             }
             pendingWheel += v
@@ -189,7 +197,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         flushNow()
         synchronized(lock) {
             zoomCtrl = false
-            HidReports.keyboard(zoomKeyBuf, 0)
+            HidReports.keyboard(zoomKeyBuf, _held.value) // a held modifier stays held
             transport.sendKeyboard(zoomKeyBuf)
         }
     }
@@ -229,6 +237,35 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         sendLocked(x, y, w, p)
     }
 
+    /**
+     * Holds or releases one modifier on the PC, so the next click, scroll or key arrives with it (Ctrl-click,
+     * Shift-click, Ctrl-scroll). It lets go by itself after one click or key press, after [HELD_IDLE_MS] of
+     * inactivity, or when typing starts, so the PC can never be left with a stuck modifier.
+     */
+    fun toggleHeld(bit: Int) = setHeld(_held.value xor bit)
+
+    /** Lets go of every held modifier. */
+    fun clearHeld() {
+        if (_held.value != 0) setHeld(0)
+    }
+
+    private fun setHeld(mask: Int) {
+        synchronized(lock) {
+            _held.value = mask
+            HidReports.keyboard(heldKeyBuf, mask)
+            transport.sendKeyboard(heldKeyBuf)
+        }
+        heldIdleJob?.cancel()
+        heldIdleJob = if (mask != 0) scope.launch { delay(HELD_IDLE_MS); clearHeld() } else null
+    }
+
+    /** Restarts the inactivity timer while the user is still working with a held modifier. */
+    private fun bumpHeld() {
+        if (_held.value == 0) return
+        heldIdleJob?.cancel()
+        heldIdleJob = scope.launch { delay(HELD_IDLE_MS); clearHeld() }
+    }
+
     /** Sends a movement, split into follow-up reports because one report carries at most +-127 per axis. */
     private fun sendLocked(dx: Int, dy: Int, wheel: Int, pan: Int): Boolean {
         if (dx == 0 && dy == 0 && wheel == 0 && pan == 0) return false
@@ -265,6 +302,8 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
             buttons = buttons and mask.inv()
             sendButtons()
         }
+        // The click has gone out with the modifier held; now let go of it.
+        clearHeld()
     }
 
     fun click(mask: Int) {
@@ -312,13 +351,14 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     fun pressKey(usage: Int, modifiers: Int = 0) {
         scope.launch {
             keyLock.withLock {
-                HidReports.keyboard(keyBuf, modifiers, usage)
+                HidReports.keyboard(keyBuf, modifiers or _held.value, usage)
                 transport.sendKeyboard(keyBuf)
                 delay(KEY_MS)
                 HidReports.keyboard(keyBuf, 0)
                 transport.sendKeyboard(keyBuf)
                 delay(KEY_MS)
             }
+            clearHeld()
         }
     }
 
@@ -331,6 +371,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     /** Types [text] through the current layout. Characters the layout cannot produce are skipped. */
     fun typeText(text: String) {
         typingJob = scope.launch {
+            clearHeld() // typed characters must not pick up a held Ctrl
             _typing.value = true
             try {
                 keyLock.withLock {
@@ -364,6 +405,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     fun runOnPc(command: String, onDone: () -> Unit = {}): Boolean {
         if (layoutUnsupported(command).isNotEmpty()) return false
         scope.launch {
+            clearHeld()
             keyLock.withLock {
                 tapKey(Keys.R, HidReports.MOD_GUI)
                 delay(RUN_OPEN_MS)
@@ -420,6 +462,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         const val NUDGE_BACK_MS = 30L
         const val PX_PER_DETENT = 28f
         const val PX_PER_ZOOM_DETENT = 40f
+        const val HELD_IDLE_MS = 8_000L
         const val FLING_MIN_SPEED = 400f // px/s: slower releases just stop
         const val FLING_STOP_SPEED = 60f
         const val FLING_MAX_SPEED = 6000f

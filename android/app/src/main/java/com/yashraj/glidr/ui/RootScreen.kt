@@ -63,6 +63,7 @@ import com.yashraj.glidr.hid.PcDevice
 import com.yashraj.glidr.ui.pad.KeyboardSheet
 import com.yashraj.glidr.ui.pad.MouseButtons
 import com.yashraj.glidr.ui.pad.PadSurface
+import com.yashraj.glidr.ui.pad.QuickKeys
 import com.yashraj.glidr.ui.theme.Glidr
 import com.yashraj.glidr.ui.theme.LocalReduceMotion
 import com.yashraj.glidr.ui.theme.MAX_SHEET_WIDTH
@@ -195,6 +196,11 @@ fun RootScreen(
                                 vm::setTouching, Modifier.weight(1f).fillMaxWidth(),
                             )
                             Gap(Space.md)
+                            // No room for the extra row in landscape, and the open keyboard already has these keys.
+                            if (s.quickKeys && !compact && !kb) {
+                                QuickKeys(vm.engine, s)
+                                Gap(Space.md)
+                            }
                             MouseButtons(vm.engine, s)
                         }
                         else -> MediaScreen(vm.engine, s.haptics, nowPlaying, companion, compact = compact)
