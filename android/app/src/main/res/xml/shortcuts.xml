@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="connect"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_connect_short"
+        android:shortcutLongLabel="@string/shortcut_connect_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.yashraj.glidr"
+            android:targetClass="com.yashraj.glidr.MainActivity">
+            <extra android:name="connect" android:value="true" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="media"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/media"
+        android:shortcutLongLabel="@string/shortcut_media_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.yashraj.glidr"
+            android:targetClass="com.yashraj.glidr.MainActivity">
+            <extra android:name="page" android:value="media" />
+        </intent>
+    </shortcut>
+</shortcuts>

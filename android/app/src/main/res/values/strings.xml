@@ -247,4 +247,11 @@
     <string name="track_progress">%1$s of %2$s</string>
     <string name="autostop_title">Keep awake stopped</string>
     <string name="autostop_text">Your PC can sleep again. Tap to start another round.</string>
+    <string name="notif_media_prev">Prev</string>
+    <string name="notif_media_play">Play/Pause</string>
+    <string name="notif_media_next">Next</string>
+    <string name="tile_tap_connect">Tap to connect</string>
+    <string name="shortcut_connect_short">Connect</string>
+    <string name="shortcut_connect_long">Connect to PC</string>
+    <string name="shortcut_media_long">Open Media remote</string>
 </resources>

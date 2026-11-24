@@ -17,6 +17,7 @@ import com.yashraj.glidr.MainActivity
 import com.yashraj.glidr.R
 import com.yashraj.glidr.data.Settings
 import com.yashraj.glidr.hid.ConnectionState
+import com.yashraj.glidr.hid.Keys
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -47,6 +48,9 @@ class GlidrService : Service() {
             }
             ACTION_AWAKE_STOP -> stopAwake()
             ACTION_PAUSE -> app.keepAwake.update { it.copy(paused = !it.paused) }
+            ACTION_MEDIA_PREV -> media(Keys.CONSUMER_PREV)
+            ACTION_MEDIA_PLAY -> media(Keys.CONSUMER_PLAY_PAUSE)
+            ACTION_MEDIA_NEXT -> media(Keys.CONSUMER_NEXT)
             ACTION_NUDGE -> {
                 app.scope.launch { app.engine.nudge(app.settings.flow.first().nudgeRoam) }
                 app.keepAwake.update { it.copy(nextInSec = everySec) }
@@ -59,6 +63,11 @@ class GlidrService : Service() {
         }
         refresh()
         return START_NOT_STICKY
+    }
+
+    /** Lock-screen remote: sends a media key straight from the notification, with no unlocking or opening the app. */
+    private fun media(usage: Int) {
+        if (app.transport.state.value == ConnectionState.Connected) app.engine.consumer(usage)
     }
 
     private fun ensureForeground() {
@@ -222,6 +231,12 @@ class GlidrService : Service() {
                     putString("android.shortCriticalText", fmt(st.nextInSec))
                 },
             )
+        } else if (conn == ConnectionState.Connected) {
+            // Not keeping awake: the three action slots become a media remote. Plain actions, not MediaStyle, so
+            // Android's own media session and its controls stay untouched.
+            b.addAction(0, getString(R.string.notif_media_prev), action(ACTION_MEDIA_PREV))
+            b.addAction(0, getString(R.string.notif_media_play), action(ACTION_MEDIA_PLAY))
+            b.addAction(0, getString(R.string.notif_media_next), action(ACTION_MEDIA_NEXT))
         }
         return b.build()
     }
@@ -238,6 +253,9 @@ class GlidrService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val NOTIFICATION_ID_STOPPED = 2
         private const val IDLE_GRACE_MS = 20_000L
+        private const val ACTION_MEDIA_PREV = "com.yashraj.glidr.MEDIA_PREV"
+        private const val ACTION_MEDIA_PLAY = "com.yashraj.glidr.MEDIA_PLAY"
+        private const val ACTION_MEDIA_NEXT = "com.yashraj.glidr.MEDIA_NEXT"
         private const val ACTION_PAUSE = "com.yashraj.glidr.PAUSE"
         private const val ACTION_NUDGE = "com.yashraj.glidr.NUDGE"
         private const val ACTION_AWAKE_START = "com.yashraj.glidr.AWAKE_START"

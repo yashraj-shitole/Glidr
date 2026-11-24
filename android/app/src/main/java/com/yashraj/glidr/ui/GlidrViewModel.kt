@@ -87,6 +87,23 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
     /** Back to defaults. The remembered PC and the welcome flag are kept. */
     fun resetSettings() = update { Settings(lastHost = it.lastHost, onboarded = it.onboarded) }
 
+    // ---- launch requests from shortcuts and the Quick Settings tile
+
+    private val _pageRequest = MutableStateFlow<String?>(null)
+    val pageRequest: StateFlow<String?> = _pageRequest
+    fun requestPage(page: String) { _pageRequest.value = page }
+    fun pageHandled() { _pageRequest.value = null }
+
+    private var connectRequested = false
+
+    /** Connect to the last PC even if auto-reconnect is off, as soon as the transport is ready. */
+    fun requestConnect() {
+        if (connection.value == com.yashraj.glidr.hid.ConnectionState.Ready) reconnectLast(force = true) else connectRequested = true
+    }
+
+    /** True once if a connect was requested before the transport was ready. */
+    fun consumeConnectRequest(): Boolean = connectRequested.also { connectRequested = false }
+
     fun startTransport() {
         app.transport.start()
         app.companion.start()
@@ -127,8 +144,8 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Re-pair the last PC when the transport is ready. */
-    fun reconnectLast() {
-        if (!settings.value.autoReconnect) return
+    fun reconnectLast(force: Boolean = false) {
+        if (!force && !settings.value.autoReconnect) return
         val last = settings.value.lastHost ?: return
         bondedHosts().firstOrNull { it.address == last }?.let { app.transport.connect(it) }
     }

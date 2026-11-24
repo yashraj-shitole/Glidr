@@ -29,11 +29,18 @@ import com.yashraj.glidr.ui.Haptics
 import com.yashraj.glidr.ui.RootScreen
 import com.yashraj.glidr.ui.theme.GlidrTheme
 
+/** Extras understood by [MainActivity]; sent by the launcher shortcuts and the Quick Settings tile. */
+object LaunchExtras {
+    const val PAGE = "page"
+    const val CONNECT = "connect"
+}
+
 class MainActivity : ComponentActivity() {
     private val vm: GlidrViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) handleLaunch(intent)
         enableEdgeToEdge()
         setContent {
             val s by vm.settings.collectAsStateWithLifecycle()
@@ -62,7 +69,7 @@ class MainActivity : ComponentActivity() {
             }
 
             LaunchedEffect(conn) {
-                if (conn == ConnectionState.Ready) vm.reconnectLast()
+                if (conn == ConnectionState.Ready) vm.reconnectLast(force = vm.consumeConnectRequest())
                 if (conn == ConnectionState.Connected) {
                     vm.ensureServiceRunning()
                     haptics.play(Haptic.Confirm, s.haptics)
@@ -93,6 +100,20 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleLaunch(intent)
+    }
+
+    private fun handleLaunch(i: Intent?) {
+        i ?: return
+        i.getStringExtra(LaunchExtras.PAGE)?.let { vm.requestPage(it) }
+        // A shortcut's XML extra may arrive as a boolean or as the string "true".
+        val connect = i.extras?.get(LaunchExtras.CONNECT)
+        if (connect == true || connect == "true") vm.requestConnect()
     }
 
     private fun hasPermission(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED

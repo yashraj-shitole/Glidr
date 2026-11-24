@@ -118,6 +118,17 @@ fun RootScreen(
     }
     val discoverable = { if (hasBluetoothPermission) onMakeDiscoverable() else onRequestBluetooth() }
 
+    // Launcher shortcuts ask for a page by name.
+    val pageRequest by vm.pageRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(pageRequest) {
+        when (pageRequest) {
+            "media" -> page = Page.Media.ordinal
+            "pad" -> page = Page.Pad.ordinal
+            else -> Unit
+        }
+        if (pageRequest != null) vm.pageHandled()
+    }
+
     // A short "Connected to X" note, because the status pill alone is easy to miss.
     LaunchedEffect(conn) {
         if (conn == ConnectionState.Connected) {
