@@ -72,7 +72,7 @@ import com.yashraj.glidr.ui.theme.Space
 import com.yashraj.glidr.update.UpdateState
 import kotlinx.coroutines.delay
 
-private enum class Page { Pad, Media, Settings }
+private enum class Page { Pad, Media, Present, Settings }
 
 /** Below this window height (a phone on its side) the chrome shrinks and the keyboard replaces the pad. */
 private val COMPACT_HEIGHT = 500.dp
@@ -125,10 +125,19 @@ fun RootScreen(
         when (pageRequest) {
             "media" -> page = Page.Media.ordinal
             "pad" -> page = Page.Pad.ordinal
+            "present" -> page = Page.Present.ordinal
             else -> Unit
         }
         if (pageRequest != null) vm.pageHandled()
     }
+
+    // The presenter screen takes over the volume keys while it is showing.
+    LaunchedEffect(page) { vm.setPresenting(page == Page.Present.ordinal) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { vm.setPresenting(false) } }
+    val presentElapsed by vm.presentElapsed.collectAsStateWithLifecycle()
+    val presentRunning by vm.presentRunning.collectAsStateWithLifecycle()
+    val buzzIndex by vm.buzzIndex.collectAsStateWithLifecycle()
+    val volumeKeys by vm.volumeKeys.collectAsStateWithLifecycle()
 
     // A short "Connected to X" note, because the status pill alone is easy to miss.
     LaunchedEffect(conn) {
@@ -203,17 +212,26 @@ fun RootScreen(
                             }
                             MouseButtons(vm.engine, s)
                         }
-                        else -> MediaScreen(vm.engine, s.haptics, nowPlaying, companion, compact = compact)
+                        page == Page.Media.ordinal -> MediaScreen(vm.engine, s.haptics, nowPlaying, companion, compact = compact)
+                        else -> PresentScreen(
+                            vm.engine, s,
+                            PresentState(
+                                presentElapsed, presentRunning, buzzIndex, volumeKeys,
+                                vm::presentToggleTimer, vm::presentResetTimer, vm::setBuzz, vm::setVolumeKeys, vm::slide,
+                            ),
+                            compact,
+                        )
                     }
                     if (toastAlpha > 0.01f) Box(Modifier.align(Alignment.TopCenter).padding(top = Space.sm).alpha(toastAlpha)) { Toast(toastText) }
                 }
                 AnimatedVisibility(kb && page == Page.Pad.ordinal && !compact) { KeyboardSheet(vm.engine, s, vm.stt, hasMic, onRequestMic) }
                 Dock(
-                    media = page == Page.Media.ordinal,
+                    current = page,
                     kbOn = kb,
                     compact = compact,
                     onPad = { page = Page.Pad.ordinal },
                     onMedia = { page = Page.Media.ordinal },
+                    onPresent = { page = Page.Present.ordinal },
                     onKb = { page = Page.Pad.ordinal; kb = !kb },
                 )
             }
@@ -303,7 +321,7 @@ private fun TopBar(
 
 /** Pad / Media tabs plus the keyboard button. The tab pill's inner radius is its outer radius minus the 4dp frame. */
 @Composable
-private fun Dock(media: Boolean, kbOn: Boolean, compact: Boolean, onPad: () -> Unit, onMedia: () -> Unit, onKb: () -> Unit) {
+private fun Dock(current: Int, kbOn: Boolean, compact: Boolean, onPad: () -> Unit, onMedia: () -> Unit, onPresent: () -> Unit, onKb: () -> Unit) {
     val c = Glidr.colors
     val h = if (compact) 56.dp else 64.dp
     val outer = h / 2
@@ -312,8 +330,9 @@ private fun Dock(media: Boolean, kbOn: Boolean, compact: Boolean, onPad: () -> U
         horizontalArrangement = Arrangement.spacedBy(Space.sm),
     ) {
         Row(Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(outer)).background(c.s2).border(1.dp, c.line, RoundedCornerShape(outer)).padding(Space.xs)) {
-            DockTab(Modifier.weight(1f), stringResource(R.string.pad), Ico.Pad, !media, outer - Space.xs, onPad)
-            DockTab(Modifier.weight(1f), stringResource(R.string.media), Ico.Media, media, outer - Space.xs, onMedia)
+            DockTab(Modifier.weight(1f), stringResource(R.string.pad), Ico.Pad, current == Page.Pad.ordinal, outer - Space.xs, onPad)
+            DockTab(Modifier.weight(1f), stringResource(R.string.media), Ico.Media, current == Page.Media.ordinal, outer - Space.xs, onMedia)
+            DockTab(Modifier.weight(1f), stringResource(R.string.present), Ico.Present, current == Page.Present.ordinal, outer - Space.xs, onPresent)
         }
         PressBox(onKb, Modifier.size(h), stringResource(R.string.keyboard), CircleShape, background = if (kbOn) c.text else c.s2) {
             Icon(Ico.Keyboard, if (kbOn) c.bg else c.text)
@@ -331,7 +350,7 @@ private fun DockTab(modifier: Modifier, label: String, icon: Ico, on: Boolean, r
     ) {
         Icon(icon, if (on) c.ink else c.dim, 20.dp)
         Box(Modifier.size(Space.sm))
-        Label(label, color = if (on) c.ink else c.dim, style = Glidr.type.body)
+        Label(label, color = if (on) c.ink else c.dim, style = Glidr.type.body, maxLines = 1)
     }
 }
 

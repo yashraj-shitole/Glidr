@@ -45,4 +45,18 @@ class MainScreenTest {
         rule.onNodeWithContentDescription("Play or pause").assertExists()
         rule.onNodeWithContentDescription("Next track").assertExists()
     }
+
+    @Test
+    fun presentTabShowsSlideButtonsAndTimer() {
+        rule.onNodeWithText("Present").performClick()
+        rule.onNodeWithContentDescription("Next slide").assertExists()
+        rule.onNodeWithContentDescription("Previous slide").assertExists()
+        rule.onNodeWithText("0:00").assertExists()
+    }
+
+    @Test
+    fun padShowsQuickKeys() {
+        rule.onNodeWithText("Ctrl").assertExists()
+        rule.onNodeWithText("Paste").assertExists()
+    }
 }

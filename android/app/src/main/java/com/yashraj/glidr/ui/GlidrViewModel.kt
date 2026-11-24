@@ -7,6 +7,7 @@ import com.yashraj.glidr.GlidrApp
 import com.yashraj.glidr.data.Settings
 import com.yashraj.glidr.hid.HidEngine
 import com.yashraj.glidr.hid.KeyboardLayout
+import com.yashraj.glidr.hid.Keys
 import com.yashraj.glidr.hid.PcDevice
 import com.yashraj.glidr.service.GlidrService
 import com.yashraj.glidr.update.GitHubReleases
@@ -87,6 +88,73 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Back to defaults. The remembered PC and the welcome flag are kept. */
     fun resetSettings() = update { Settings(lastHost = it.lastHost, onboarded = it.onboarded) }
+
+    // ---- presenter: timer, slide keys
+
+    private val presentHaptics by lazy { Haptics(app) }
+    private val _presentElapsed = MutableStateFlow(0)
+    val presentElapsed: StateFlow<Int> = _presentElapsed
+    private val _presentRunning = MutableStateFlow(false)
+    val presentRunning: StateFlow<Boolean> = _presentRunning
+    private val _buzzIndex = MutableStateFlow(0)
+    val buzzIndex: StateFlow<Int> = _buzzIndex
+    private val _volumeKeys = MutableStateFlow(true)
+    val volumeKeys: StateFlow<Boolean> = _volumeKeys
+    private val presenting = MutableStateFlow(false)
+    private var presentJob: kotlinx.coroutines.Job? = null
+
+    /** Minutes between buzzes for each choice of the Buzz every control; 0 is off. */
+    private val buzzMinutes = intArrayOf(0, 5, 10, 15)
+
+    fun setBuzz(index: Int) { _buzzIndex.value = index.coerceIn(0, buzzMinutes.lastIndex) }
+    fun setVolumeKeys(on: Boolean) { _volumeKeys.value = on }
+
+    fun presentToggleTimer() {
+        if (_presentRunning.value) {
+            presentJob?.cancel()
+            _presentRunning.value = false
+            return
+        }
+        _presentRunning.value = true
+        presentJob = viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(1_000)
+                val t = _presentElapsed.value + 1
+                _presentElapsed.value = t
+                val every = buzzMinutes[_buzzIndex.value] * 60
+                // A cue at each interval, strong so it is felt in a pocket or a hand; off only if haptics are off.
+                if (every > 0 && t % every == 0 && settings.value.haptics > 0) presentHaptics.play(Haptic.Confirm, 3)
+            }
+        }
+    }
+
+    fun presentResetTimer() {
+        presentJob?.cancel()
+        _presentRunning.value = false
+        _presentElapsed.value = 0
+    }
+
+    /** Next slide is Right arrow, previous is Left arrow: what PowerPoint, Slides, Keynote-on-web and PDF viewers use. */
+    fun slide(next: Boolean) {
+        if (!engine.connected) {
+            presentHaptics.play(Haptic.Reject, settings.value.haptics)
+            return
+        }
+        engine.pressKey(if (next) Keys.RIGHT else Keys.LEFT)
+        presentHaptics.play(Haptic.Click, settings.value.haptics)
+    }
+
+    fun volumeKeysCaptured(): Boolean = presenting.value && _volumeKeys.value
+
+    /** RootScreen tells us when the presenter screen is showing. */
+    fun setPresenting(on: Boolean) { presenting.value = on }
+
+    /** Volume keys turn slides, but only on the presenter screen and only if the switch is on. True if handled. */
+    fun handleVolumeKey(up: Boolean, repeating: Boolean): Boolean {
+        if (!presenting.value || !_volumeKeys.value) return false
+        if (!repeating) slide(next = !up)
+        return true
+    }
 
     // ---- launch requests from shortcuts and the Quick Settings tile
 

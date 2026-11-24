@@ -1,5 +1,6 @@
 package com.yashraj.glidr.service
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.drawable.Icon
@@ -72,6 +73,8 @@ class GlidrTileService : TileService() {
         if (isLocked) unlockAndRun { openApp() } else openApp()
     }
 
+    // The Intent overload is only used below API 34, where the PendingIntent one does not exist yet.
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun openApp() {
         val intent = Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

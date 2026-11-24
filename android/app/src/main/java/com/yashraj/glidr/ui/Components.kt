@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.selection.selectable
@@ -104,7 +107,7 @@ fun Label(text: String, modifier: Modifier = Modifier, color: Color = Glidr.colo
     BasicText(text, modifier, style = style.copy(color = color), maxLines = maxLines, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
 }
 
-enum class Ico { Mic, Settings, Awake, Keyboard, Back, Down, Pad, Media, Play, Pause, Prev, Next, Stop, Mute, VolUp, VolDown }
+enum class Ico { Present, Mic, Settings, Awake, Keyboard, Back, Down, Pad, Media, Play, Pause, Prev, Next, Stop, Mute, VolUp, VolDown }
 
 @Composable
 fun Icon(kind: Ico, tint: Color, size: Dp = 24.dp) {
@@ -138,6 +141,11 @@ fun Icon(kind: Ico, tint: Color, size: Dp = 24.dp) {
             }
             Ico.Back -> { drawLine(tint, p(15f, 5f), p(8f, 12f), sw, StrokeCap.Round); drawLine(tint, p(8f, 12f), p(15f, 19f), sw, StrokeCap.Round) }
             Ico.Down -> { drawLine(tint, p(6f, 9f), p(12f, 15f), sw, StrokeCap.Round); drawLine(tint, p(12f, 15f), p(18f, 9f), sw, StrokeCap.Round) }
+            Ico.Present -> { // a screen on a stand
+                drawRoundRect(tint, p(3f, 4f), Size(18f * w / 24f, 12f * w / 24f), androidx.compose.ui.geometry.CornerRadius(w * 0.1f), style = st)
+                drawLine(tint, p(12f, 16f), p(12f, 20f), sw, StrokeCap.Round)
+                drawLine(tint, p(8f, 20f), p(16f, 20f), sw, StrokeCap.Round)
+            }
             Ico.Pad -> drawRoundRect(tint, p(4f, 5f), Size(16f * w / 24f, 14f * w / 24f), androidx.compose.ui.geometry.CornerRadius(w * 0.2f), style = st)
             Ico.Media -> { drawCircle(tint, w * 0.34f, p(12f, 12f), style = st); drawCircle(tint, w * 0.07f, p(12f, 12f)) }
             Ico.Play -> {
@@ -185,6 +193,22 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mod
                 contentAlignment = Alignment.Center,
             ) { Label(label, color = if (on) c.ink else c.dim, maxLines = 1) }
         }
+    }
+}
+
+/** The whole row is the switch, so the touch target is the full width, not just the 52dp graphic. */
+@Composable
+fun SwitchRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    val c = Glidr.colors
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).toggleable(value = on, role = Role.Switch, onValueChange = onChange).padding(vertical = Space.sm),
+        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f).padding(end = Space.md)) {
+            Label(title, color = c.text, style = Glidr.type.body)
+            Label(sub, color = c.dim, style = Glidr.type.small)
+        }
+        ToggleSwitch(on)
     }
 }
 

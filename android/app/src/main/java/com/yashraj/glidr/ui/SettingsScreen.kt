@@ -373,22 +373,6 @@ private fun ActionRow(
     }
 }
 
-/** The whole row is the switch, so the touch target is the full width, not just the 52dp graphic. */
-@Composable
-private fun SwitchRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
-    val c = Glidr.colors
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).toggleable(value = on, role = Role.Switch, onValueChange = onChange).padding(vertical = Space.sm),
-        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f).padding(end = Space.md)) {
-            Label(title, color = c.text, style = Glidr.type.body)
-            Label(sub, color = c.dim, style = Glidr.type.small)
-        }
-        ToggleSwitch(on)
-    }
-}
-
 /** Preview of the speed-in, speed-out curve for the current sensitivity and acceleration. */
 @Composable
 private fun AccelCurve(sensitivity: Float, accel: Int) {

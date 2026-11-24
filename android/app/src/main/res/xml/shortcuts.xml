@@ -26,4 +26,17 @@
             <extra android:name="page" android:value="media" />
         </intent>
     </shortcut>
+    <shortcut
+        android:shortcutId="present"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/present"
+        android:shortcutLongLabel="@string/shortcut_present_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.yashraj.glidr"
+            android:targetClass="com.yashraj.glidr.MainActivity">
+            <extra android:name="page" android:value="present" />
+        </intent>
+    </shortcut>
 </shortcuts>
