@@ -244,4 +244,7 @@
     <string name="voice_info">%1$s · types with the %2$s layout</string>
     <string name="clear">Clear</string>
     <string name="stop_typing">Stop typing</string>
+    <string name="track_progress">%1$s of %2$s</string>
+    <string name="autostop_title">Keep awake stopped</string>
+    <string name="autostop_text">Your PC can sleep again. Tap to start another round.</string>
 </resources>

@@ -28,6 +28,12 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.unit.Dp
+import com.yashraj.glidr.ui.theme.Radius
+import com.yashraj.glidr.ui.theme.Space
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +67,7 @@ fun MediaScreen(
     now: NowPlaying?,
     link: CompanionState,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     val c = Glidr.colors
     val ctx = LocalContext.current
@@ -73,24 +80,46 @@ fun MediaScreen(
         engine.consumer(usage)
         haptics.play(Haptic.Click, haptic)
     }
-    Column(modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-        Column(Modifier.padding(horizontal = 4.dp)) {
-            Label(stringResource(R.string.media), color = c.text, style = Glidr.type.title)
-            Label(stringResource(R.string.media_sub), color = c.dim, style = Glidr.type.small)
-        }
-        NowPlayingCard(now, link, Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-            PressBox({ send(Keys.CONSUMER_PREV) }, Modifier.size(68.dp), stringResource(R.string.prev_track), CircleShape) { Icon(Ico.Prev, c.text, 26.dp) }
-            PressBox({ send(Keys.CONSUMER_PLAY_PAUSE) }, Modifier.size(104.dp), stringResource(R.string.play_pause), CircleShape, background = c.accent, border = false) {
-                Icon(if (now?.playing == true) Ico.Pause else Ico.Play, c.ink, 38.dp)
+    val transport: @Composable () -> Unit = {
+        val side = if (compact) 56.dp else 68.dp
+        val centre = if (compact) 80.dp else 104.dp
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (compact) Space.lg else 22.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+            PressBox({ send(Keys.CONSUMER_PREV) }, Modifier.size(side), stringResource(R.string.prev_track), CircleShape) { Icon(Ico.Prev, c.text, 26.dp) }
+            PressBox({ send(Keys.CONSUMER_PLAY_PAUSE) }, Modifier.size(centre), stringResource(R.string.play_pause), CircleShape, background = c.accent, border = false) {
+                Icon(if (now?.playing == true) Ico.Pause else Ico.Play, c.ink, if (compact) 30.dp else 38.dp)
             }
-            PressBox({ send(Keys.CONSUMER_NEXT) }, Modifier.size(68.dp), stringResource(R.string.next_track), CircleShape) { Icon(Ico.Next, c.text, 26.dp) }
+            PressBox({ send(Keys.CONSUMER_NEXT) }, Modifier.size(side), stringResource(R.string.next_track), CircleShape) { Icon(Ico.Next, c.text, 26.dp) }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Tile(Modifier.weight(1f), Ico.Mute, stringResource(R.string.mute)) { send(Keys.CONSUMER_MUTE) }
-            Tile(Modifier.weight(1f), Ico.Stop, stringResource(R.string.stop)) { send(Keys.CONSUMER_STOP) }
+    }
+    val tileH = if (compact) 60.dp else 76.dp
+    val tiles: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+            Tile(Modifier.weight(1f), tileH, Ico.Mute, stringResource(R.string.mute)) { send(Keys.CONSUMER_MUTE) }
+            Tile(Modifier.weight(1f), tileH, Ico.Stop, stringResource(R.string.stop)) { send(Keys.CONSUMER_STOP) }
         }
-        VolumeStrip(engine, haptic, Modifier.padding(top = 8.dp))
+    }
+    if (compact) {
+        // Landscape: the card on the left, every control stacked on the right, nothing scrolls.
+        Row(modifier.fillMaxSize().padding(horizontal = Space.lg), horizontalArrangement = Arrangement.spacedBy(Space.lg)) {
+            NowPlayingCard(now, link, Modifier.weight(1f).fillMaxHeight().padding(bottom = Space.sm))
+            Column(Modifier.weight(1f).fillMaxHeight().padding(bottom = Space.sm), verticalArrangement = Arrangement.SpaceBetween) {
+                transport()
+                tiles()
+                VolumeStrip(engine, haptic, tileH)
+            }
+        }
+    } else {
+        Column(modifier.fillMaxSize().padding(horizontal = Space.lg), verticalArrangement = Arrangement.SpaceBetween) {
+            Column(Modifier.padding(horizontal = 4.dp)) {
+                Label(stringResource(R.string.media), color = c.text, style = Glidr.type.title)
+                Label(stringResource(R.string.media_sub), color = c.dim, style = Glidr.type.small)
+            }
+            NowPlayingCard(now, link, Modifier.weight(1f).fillMaxWidth().padding(vertical = Space.lg))
+            transport()
+            Gap(Space.lg)
+            tiles()
+            VolumeStrip(engine, haptic, tileH, Modifier.padding(top = Space.sm))
+        }
     }
 }
 
@@ -98,7 +127,7 @@ fun MediaScreen(
 @Composable
 private fun NowPlayingCard(now: NowPlaying?, link: CompanionState, modifier: Modifier) {
     val c = Glidr.colors
-    val shape = RoundedCornerShape(28.dp)
+    val shape = RoundedCornerShape(Radius.sheet)
     Column(
         modifier.clip(shape).background(c.s1).border(1.dp, c.line, shape).padding(20.dp),
         verticalArrangement = Arrangement.SpaceBetween,
@@ -138,23 +167,24 @@ private fun NowPlayingCard(now: NowPlaying?, link: CompanionState, modifier: Mod
                     Image(
                         art, contentDescription = stringResource(R.string.cover_art),
                         contentScale = ContentScale.Fit, filterQuality = FilterQuality.High,
-                        modifier = Modifier.fillMaxWidth().aspectRatio(ratio).clip(RoundedCornerShape(20.dp)).background(c.s2),
+                        modifier = Modifier.fillMaxWidth().aspectRatio(ratio).clip(RoundedCornerShape(Radius.control)).background(c.s2),
                     )
                 } else {
-                    Box(Modifier.fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(20.dp)).background(c.s2), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(Radius.control)).background(c.s2), contentAlignment = Alignment.Center) {
                         Icon(Ico.Media, c.dim, 56.dp)
                     }
                 }
             }
             Box(Modifier.height(16.dp))
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Label(now.title.ifEmpty { stringResource(R.string.unknown_title) }, color = c.text, style = Glidr.type.body.copy(fontSize = androidx.compose.ui.unit.TextUnit(20f, androidx.compose.ui.unit.TextUnitType.Sp)), modifier = Modifier, maxLines = 1)
+                Label(now.title.ifEmpty { stringResource(R.string.unknown_title) }, color = c.text, style = Glidr.type.bodyLarge, maxLines = 1)
                 val sub = listOf(now.artist, now.app).filter { it.isNotBlank() }.joinToString(" · ")
                 if (sub.isNotEmpty()) Label(sub, color = c.dim, style = Glidr.type.small, maxLines = 1)
             }
             Box(Modifier.height(14.dp))
             val frac = if (now.durationMs > 0) (elapsed.toFloat() / now.durationMs).coerceIn(0f, 1f) else 0f
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(c.s3)) {
+            val progressText = stringResource(R.string.track_progress, fmt(elapsed), if (now.durationMs > 0) fmt(now.durationMs) else "--:--")
+            Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(c.s3).semantics { contentDescription = progressText }) {
                 Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(CircleShape).background(c.accent))
             }
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -171,9 +201,9 @@ private fun fmt(ms: Long): String {
 }
 
 @Composable
-private fun Tile(modifier: Modifier, icon: Ico, label: String, onClick: () -> Unit) {
+private fun Tile(modifier: Modifier, height: Dp, icon: Ico, label: String, onClick: () -> Unit) {
     val c = Glidr.colors
-    PressBox(onClick, modifier.height(76.dp), label, RoundedCornerShape(22.dp)) {
+    PressBox(onClick, modifier.height(height), label, RoundedCornerShape(Radius.tile)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(icon, c.text)
             Label(label, color = c.dim, style = Glidr.type.small)
@@ -187,7 +217,7 @@ private fun Tile(modifier: Modifier, icon: Ico, label: String, onClick: () -> Un
  * Same thickness as the tiles above it.
  */
 @Composable
-private fun VolumeStrip(engine: HidEngine, haptic: Int, modifier: Modifier = Modifier) {
+private fun VolumeStrip(engine: HidEngine, haptic: Int, height: Dp, modifier: Modifier = Modifier) {
     val c = Glidr.colors
     val ctx = LocalContext.current
     val haptics = remember { Haptics(ctx) }
@@ -196,11 +226,29 @@ private fun VolumeStrip(engine: HidEngine, haptic: Int, modifier: Modifier = Mod
     var offset by remember { mutableFloatStateOf(0f) }
     val grow by animateFloatAsState(if (pressed) 1.12f else 1f, motionSpec(), label = "volGrow")
     val border by animateColorAsState(if (pressed) c.accent else c.line, motionSpec(), label = "volBorder")
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(Radius.tile)
     val desc = stringResource(R.string.volume_strip)
+    val upLabel = stringResource(R.string.vol_up)
+    val downLabel = stringResource(R.string.vol_down)
+    // Steps sent in this drag ("+3"), shown briefly in the middle. The real volume is unknown, so this says what was sent.
+    var steps by remember { mutableIntStateOf(0) }
+    var stamp by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(stamp) {
+        if (stamp != 0L) {
+            delay(900)
+            steps = 0
+        }
+    }
     Box(
-        modifier.fillMaxWidth().height(76.dp)
-            .semantics { contentDescription = desc }
+        modifier.fillMaxWidth().height(height)
+            .semantics {
+                contentDescription = desc
+                // A drag cannot be done with TalkBack, so offer the same steps as actions.
+                customActions = listOf(
+                    CustomAccessibilityAction(upLabel) { if (engine.connected) engine.consumer(Keys.CONSUMER_VOL_UP); true },
+                    CustomAccessibilityAction(downLabel) { if (engine.connected) engine.consumer(Keys.CONSUMER_VOL_DOWN); true },
+                )
+            }
             // Keep the edge back gesture from stealing a drag that starts near the screen edge.
             .systemGestureExclusion()
             .pointerInput(haptic) {
@@ -229,6 +277,8 @@ private fun VolumeStrip(engine: HidEngine, haptic: Int, modifier: Modifier = Mod
                                 if (engine.connected) {
                                     engine.consumer(if (up) Keys.CONSUMER_VOL_UP else Keys.CONSUMER_VOL_DOWN)
                                     haptics.play(Haptic.Tick, haptic)
+                                    steps += if (up) 1 else -1
+                                    stamp = SystemClock.elapsedRealtime()
                                 } else {
                                     haptics.play(Haptic.Reject, haptic)
                                     carry = 0f
@@ -249,6 +299,7 @@ private fun VolumeStrip(engine: HidEngine, haptic: Int, modifier: Modifier = Mod
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Icon(Ico.VolDown, c.text, 24.dp)
+            if (steps != 0) Label(if (steps > 0) "+$steps" else "−${-steps}", color = c.accentText, style = Glidr.type.mono)
             Icon(Ico.VolUp, c.text, 24.dp)
         }
     }

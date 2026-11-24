@@ -93,6 +93,7 @@ class GlidrService : Service() {
                 everySec = Settings.NUDGE_SECONDS[cfg.nudgeEvery.coerceIn(0, 3)]
                 val limitMin = Settings.AUTO_STOP_MINUTES[cfg.autoStop.coerceIn(0, 3)]
                 if (limitMin > 0 && app.keepAwake.state.value.elapsedSec + 1 >= limitMin * 60) {
+                    notifyAutoStopped()
                     stopAwake()
                     return@launch
                 }
@@ -152,13 +153,37 @@ class GlidrService : Service() {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, build())
     }
 
-    private fun build(): Notification {
-        val nm = getSystemService(NotificationManager::class.java)
+    private fun ensureChannel(nm: NotificationManager) {
         if (nm.getNotificationChannel(CHANNEL) == null) {
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL, getString(R.string.notif_channel), NotificationManager.IMPORTANCE_LOW),
             )
         }
+    }
+
+    /** Tells the user that keep awake ended on its own, so a PC that later falls asleep is not a mystery. */
+    private fun notifyAutoStopped() {
+        val nm = getSystemService(NotificationManager::class.java)
+        ensureChannel(nm)
+        val open = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        nm.notify(
+            NOTIFICATION_ID_STOPPED,
+            NotificationCompat.Builder(this, CHANNEL)
+                .setSmallIcon(R.drawable.ic_stat_awake)
+                .setContentTitle(getString(R.string.autostop_title))
+                .setContentText(getString(R.string.autostop_text))
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .build(),
+        )
+    }
+
+    private fun build(): Notification {
+        val nm = getSystemService(NotificationManager::class.java)
+        ensureChannel(nm)
         val st = app.keepAwake.state.value
         val conn = app.transport.state.value
         val host = app.transport.host.value?.name ?: getString(R.string.your_pc)
@@ -211,6 +236,7 @@ class GlidrService : Service() {
     companion object {
         private const val CHANNEL = "glidr_status"
         private const val NOTIFICATION_ID = 1
+        private const val NOTIFICATION_ID_STOPPED = 2
         private const val IDLE_GRACE_MS = 20_000L
         private const val ACTION_PAUSE = "com.yashraj.glidr.PAUSE"
         private const val ACTION_NUDGE = "com.yashraj.glidr.NUDGE"

@@ -183,7 +183,7 @@ fun RootScreen(
                             Gap(Space.md)
                             MouseButtons(vm.engine, s)
                         }
-                        else -> MediaScreen(vm.engine, s.haptics, nowPlaying, companion)
+                        else -> MediaScreen(vm.engine, s.haptics, nowPlaying, companion, compact = compact)
                     }
                     if (toastAlpha > 0.01f) Box(Modifier.align(Alignment.TopCenter).padding(top = Space.sm).alpha(toastAlpha)) { Toast(toastText) }
                 }
