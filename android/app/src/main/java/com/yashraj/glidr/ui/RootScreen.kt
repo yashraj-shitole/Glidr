@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -64,6 +65,7 @@ import com.yashraj.glidr.ui.pad.MouseButtons
 import com.yashraj.glidr.ui.pad.PadSurface
 import com.yashraj.glidr.ui.theme.Glidr
 import com.yashraj.glidr.ui.theme.LocalReduceMotion
+import com.yashraj.glidr.ui.theme.MAX_SHEET_WIDTH
 import com.yashraj.glidr.ui.theme.Radius
 import com.yashraj.glidr.ui.theme.Space
 import com.yashraj.glidr.update.UpdateState
@@ -148,7 +150,9 @@ fun RootScreen(
                 onReset = vm::resetSettings, onShowWelcome = { replayWelcome = true },
             )
             else -> Column(Modifier.fillMaxSize()) {
-                TopBar(
+                val keyboardOnly = compact && kb && page == Page.Pad.ordinal
+                // In landscape the open keyboard needs every row it can get, so the status bar steps aside.
+                if (!keyboardOnly) TopBar(
                     label = if (hasBluetoothPermission) connectionLabel(conn, host?.name) else stringResource(R.string.state_need_permission),
                     state = if (hasBluetoothPermission) conn else null,
                     awakeOn = awake.active,
@@ -165,7 +169,6 @@ fun RootScreen(
                     onSettings = { page = Page.Settings.ordinal },
                     updateWaiting = update is UpdateState.Available,
                 )
-                val keyboardOnly = compact && kb && page == Page.Pad.ordinal
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     when {
                         keyboardOnly -> Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.BottomCenter) {
@@ -323,7 +326,7 @@ private fun DeviceSheet(
     val c = Glidr.colors
     BoxWithConstraints(Modifier.fillMaxSize().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.BottomCenter) {
         Column(
-            Modifier.fillMaxWidth().heightIn(max = maxHeight * 0.92f)
+            Modifier.widthIn(max = MAX_SHEET_WIDTH).fillMaxWidth().heightIn(max = maxHeight * 0.92f)
                 .clip(RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet)).background(c.s1)
                 .clickable(enabled = false) {}.verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(Space.md),

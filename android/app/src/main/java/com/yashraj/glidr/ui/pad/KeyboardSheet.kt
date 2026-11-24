@@ -33,12 +33,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -67,7 +69,13 @@ private val SYMBOL_ROWS = listOf("1234567890", "@#$%&-+()/", "*\":;!?=_^'", "[]{
 
 /** Every key is 44dp tall. Six rows plus five 6dp gaps make the 294dp working area all four tabs share. */
 private val KEY_HEIGHT = 44.dp
-private val KEYS_AREA = KEY_HEIGHT * 6 + Space.key * 5
+
+/**
+ * The working area as the key layers actually lay out: each key height and gap is rounded to whole pixels first, so
+ * a plain `KEY_HEIGHT * 6 + gaps` can come out a few pixels short on some densities and the tabs would differ in height.
+ */
+@Composable
+private fun keysArea(): Dp = with(LocalDensity.current) { (KEY_HEIGHT.roundToPx() * 6 + Space.key.roundToPx() * 5).toDp() }
 
 /** A held key fires once on press, again after this delay, then at the repeat interval. */
 private const val REPEAT_DELAY_MS = 400L
@@ -150,6 +158,7 @@ fun KeyboardSheet(
         haptics.play(Haptic.Tick, level)
     }
 
+    val area = keysArea()
     val shiftBit = if (shiftLatched) HidReports.MOD_SHIFT else 0
     val live = { engine.connected }
     val sheetShape = RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet)
@@ -218,7 +227,7 @@ fun KeyboardSheet(
 
             // The grid scrolls inside the same 294dp the key layers use, so the sheet never changes height between tabs.
             // Cards are 72dp, so the fourth row peeks 14dp past the edge to show there is more below.
-            Tab.Shortcuts -> Column(Modifier.height(KEYS_AREA).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+            Tab.Shortcuts -> Column(Modifier.height(area).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
                 for (rowItems in SHORTCUTS.chunked(3)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                         for (s in rowItems) {
@@ -279,13 +288,13 @@ fun KeyboardSheet(
                 }
             }
 
-            Tab.Voice -> VoicePanel(engine, settings, stt, hasMic, onRequestMic, haptics)
+            Tab.Voice -> VoicePanel(engine, settings, stt, hasMic, onRequestMic, haptics, area)
         }
     }
 }
 
 @Composable
-private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, hasMic: Boolean, onRequestMic: () -> Unit, haptics: Haptics) {
+private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, hasMic: Boolean, onRequestMic: () -> Unit, haptics: Haptics, area: Dp) {
     val c = Glidr.colors
     val state by stt.state.collectAsStateWithLifecycle()
     val text by stt.text.collectAsStateWithLifecycle()
@@ -319,7 +328,7 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
         }
     }
 
-    Column(Modifier.height(KEYS_AREA), verticalArrangement = Arrangement.spacedBy(Space.md)) {
+    Column(Modifier.height(area), verticalArrangement = Arrangement.spacedBy(Space.md)) {
         Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(Radius.control)).background(c.s2).border(1.dp, c.line, RoundedCornerShape(Radius.control)).padding(Space.md)) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Label(hint, color = if (text.isEmpty() || note != null || state == SttState.Error) c.dim else c.text, style = Glidr.type.body)

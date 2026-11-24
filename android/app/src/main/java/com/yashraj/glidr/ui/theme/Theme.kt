@@ -50,6 +50,11 @@ object Space {
     val key = 6.dp
 }
 
+/** Widest a settings list, dialog or bottom sheet gets, so wide screens keep a readable column (Material: ~560-600dp). */
+val MAX_CONTENT_WIDTH = 600.dp
+val MAX_SHEET_WIDTH = 560.dp
+val MAX_DIALOG_WIDTH = 480.dp
+
 /**
  * Corner radii on one scale. Nested shapes follow `inner = outer - inset`, so curves stay concentric:
  * segmented control 16 - 4 = 12 ([key]), dock `h/2 - 4`.

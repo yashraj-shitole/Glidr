@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -52,6 +53,8 @@ import com.yashraj.glidr.hid.KeyboardLayout
 import com.yashraj.glidr.input.MotionPipeline
 import com.yashraj.glidr.ui.theme.ACCENT_COLORS
 import com.yashraj.glidr.ui.theme.Glidr
+import com.yashraj.glidr.ui.theme.MAX_CONTENT_WIDTH
+import com.yashraj.glidr.ui.theme.MAX_DIALOG_WIDTH
 import com.yashraj.glidr.ui.theme.Radius
 import com.yashraj.glidr.ui.theme.Space
 import com.yashraj.glidr.update.Release
@@ -75,7 +78,8 @@ fun SettingsScreen(
     // A detent tick whenever a slider moves to a new step.
     fun tick() = haptics.play(Haptic.Tick, s.haptics)
     Box(modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
+        // On a wide screen (landscape, tablet) the list stays a readable column instead of stretching edge to edge.
+        Column(Modifier.widthIn(max = MAX_CONTENT_WIDTH).fillMaxSize().align(Alignment.TopCenter)) {
             Row(Modifier.padding(horizontal = Space.lg, vertical = Space.sm), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md)) {
                 RoundIconButton(Ico.Back, stringResource(R.string.back), onBack)
                 Label(stringResource(R.string.settings), color = c.text, style = Glidr.type.title)
@@ -231,7 +235,7 @@ private fun ConfirmDialog(title: String, body: String, action: String, onConfirm
     val c = Glidr.colors
     Box(Modifier.fillMaxSize().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.padding(Space.xl).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.sheet))
+            Modifier.padding(Space.xl).widthIn(max = MAX_DIALOG_WIDTH).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.sheet))
                 .clickable(enabled = false) {}.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {
@@ -253,7 +257,7 @@ private fun InstallPcAppDialog(pcConnected: Boolean, onInstallOnPc: (onDone: () 
     val steps = listOf(R.string.install_step_1, R.string.install_step_2, R.string.install_step_3, R.string.install_step_4)
     Box(Modifier.fillMaxSize().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.padding(Space.xl).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.sheet))
+            Modifier.padding(Space.xl).widthIn(max = MAX_DIALOG_WIDTH).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.sheet))
                 .clickable(enabled = false) {}.verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import com.yashraj.glidr.R
 import com.yashraj.glidr.ui.theme.Glidr
+import com.yashraj.glidr.ui.theme.MAX_DIALOG_WIDTH
 import com.yashraj.glidr.ui.theme.Radius
 import com.yashraj.glidr.ui.theme.Space
 import androidx.compose.ui.unit.dp
@@ -103,7 +105,7 @@ fun WelcomeCard(pairStep: Int, onDiscoverable: () -> Unit, onClose: () -> Unit) 
     val last = page == 1
     Box(Modifier.fillMaxSize().background(Scrim).clickable(enabled = false) {}, contentAlignment = Alignment.Center) {
         Column(
-            Modifier.padding(Space.xl).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1)
+            Modifier.padding(Space.xl).widthIn(max = MAX_DIALOG_WIDTH).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1)
                 .border(1.dp, c.line, RoundedCornerShape(Radius.sheet)).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {
