@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -141,6 +142,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAw
                     var cumPan = 0f
                     var bufX = 0f
                     var bufY = 0f
+                    val velocity = VelocityTracker() // two-finger scroll speed at release, for the glide
                     var lastMs = startMs
                     try {
                     do {
@@ -191,6 +193,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAw
                                 down.size == 2 && maxPointers == 2 -> {
                                     val dSpread = (down[0].position - down[1].position).getDistance() -
                                         (down[0].previousPosition - down[1].previousPosition).getDistance()
+                                    velocity.addPosition(ev.changes[0].uptimeMillis, Offset(cx / down.size, cy / down.size))
                                     if (!twoDecided) {
                                         cumSpread += abs(dSpread)
                                         cumPan += abs(dx) + abs(dy)
@@ -225,6 +228,10 @@ fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAw
                         onTouch(false)
                     }
 
+                    if (twoDecided && !pinching && maxPointers == 2) {
+                        val v = velocity.calculateVelocity()
+                        engine.fling(v.x, v.y)
+                    }
                     scope.launch { glass.release() }
                     val quick = lastMs - startMs <= TAP_MAX_MS && travel < TAP_SLOP_PX * maxPointers
                     if (maxPointers >= 3 && !swiped) {
@@ -323,6 +330,7 @@ private fun ScrollStrip(engine: HidEngine, settings: Settings, onTouch: (Boolean
                     engine.touchStart()
                     var lastY = down.position.y
                     var held = true
+                    val velocity = VelocityTracker()
                     try {
                         while (held) {
                             val ev = awaitPointerEvent()
@@ -330,6 +338,7 @@ private fun ScrollStrip(engine: HidEngine, settings: Settings, onTouch: (Boolean
                             if (ch == null || !ch.pressed) {
                                 held = false
                             } else {
+                                velocity.addPosition(ch.uptimeMillis, ch.position)
                                 val dy = ch.position.y - lastY
                                 lastY = ch.position.y
                                 if (dy != 0f) {
@@ -344,6 +353,7 @@ private fun ScrollStrip(engine: HidEngine, settings: Settings, onTouch: (Boolean
                         engine.touchEnd()
                         onTouch(false)
                     }
+                    engine.fling(0f, velocity.calculateVelocity().y)
                 }
             },
         contentAlignment = Alignment.Center,

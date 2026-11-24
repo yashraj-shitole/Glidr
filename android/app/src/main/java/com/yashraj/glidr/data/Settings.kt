@@ -18,6 +18,7 @@ data class Settings(
     val acceleration: Int = 2,
     val scrollSpeed: Float = 1.2f,
     val naturalScroll: Boolean = true,
+    val flingScroll: Boolean = true,
     val tapToClick: Boolean = true,
     val leftHanded: Boolean = false,
     val layoutId: String = "us",
@@ -49,6 +50,7 @@ class SettingsRepository(private val context: Context) {
         val accel = intPreferencesKey("accel")
         val scroll = floatPreferencesKey("scroll")
         val natural = booleanPreferencesKey("natural")
+        val fling = booleanPreferencesKey("fling")
         val tap = booleanPreferencesKey("tap")
         val left = booleanPreferencesKey("left")
         val layout = stringPreferencesKey("layout")
@@ -77,6 +79,7 @@ class SettingsRepository(private val context: Context) {
             acceleration = p[K.accel] ?: d.acceleration,
             scrollSpeed = p[K.scroll] ?: d.scrollSpeed,
             naturalScroll = p[K.natural] ?: d.naturalScroll,
+            flingScroll = p[K.fling] ?: d.flingScroll,
             tapToClick = p[K.tap] ?: d.tapToClick,
             leftHanded = p[K.left] ?: d.leftHanded,
             layoutId = p[K.layout] ?: d.layoutId,
@@ -104,6 +107,7 @@ class SettingsRepository(private val context: Context) {
             p[K.accel] = s.acceleration
             p[K.scroll] = s.scrollSpeed
             p[K.natural] = s.naturalScroll
+            p[K.fling] = s.flingScroll
             p[K.tap] = s.tapToClick
             p[K.left] = s.leftHanded
             p[K.layout] = s.layoutId

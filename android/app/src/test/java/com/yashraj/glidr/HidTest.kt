@@ -21,11 +21,12 @@ import org.junit.Test
 private class FakeTransport : HidTransport {
     override val state: StateFlow<ConnectionState> = MutableStateFlow(ConnectionState.Connected)
     override val host: StateFlow<PcDevice?> = MutableStateFlow(null)
-    val mouse = mutableListOf<List<Byte>>()
-    val keyboard = mutableListOf<List<Byte>>()
+    // Copy-on-write lists: the glide and typing run on other threads while the tests read.
+    val mouse = java.util.concurrent.CopyOnWriteArrayList<List<Byte>>()
+    val keyboard = java.util.concurrent.CopyOnWriteArrayList<List<Byte>>()
 
     /** Every report in the order it was sent: "m" for mouse, "k" for keyboard. */
-    val log = mutableListOf<String>()
+    val log = java.util.concurrent.CopyOnWriteArrayList<String>()
     override fun start() {}
     override fun stop() {}
     override fun retry() {}
@@ -198,5 +199,47 @@ class HidTest {
         assertEquals(List(8) { 0.toByte() }, t.keyboard.last()) // all keys released
         Thread.sleep(100)
         assertEquals(sent, t.keyboard.size) // and nothing more arrives afterwards
+    }
+
+    @Test
+    fun flingGlidesInTheFlickDirectionThenStopsWhenCancelled() {
+        val t = FakeTransport()
+        val e = HidEngine(t, CoroutineScope(Dispatchers.Default))
+        e.naturalScroll = true
+        e.scrollSpeed = 1f
+        e.fling(0f, -2000f) // a fast flick upwards: natural scroll turns the wheel down
+        Thread.sleep(350)
+        assertTrue("glided for several frames", t.mouse.size >= 3)
+        assertTrue("wheel only ever turns one way", t.mouse.all { it[3] <= 0 })
+        e.cancelFling()
+        Thread.sleep(40)
+        val n = t.mouse.size
+        Thread.sleep(120)
+        assertEquals("nothing is sent after cancel", n, t.mouse.size)
+    }
+
+    @Test
+    fun slowReleaseAndDisabledSettingDoNotGlide() {
+        val slow = FakeTransport()
+        HidEngine(slow, CoroutineScope(Dispatchers.Default)).fling(0f, -50f)
+        val off = FakeTransport()
+        HidEngine(off, CoroutineScope(Dispatchers.Default)).apply { flingEnabled = false }.fling(0f, -3000f)
+        Thread.sleep(150)
+        assertTrue(slow.mouse.isEmpty())
+        assertTrue(off.mouse.isEmpty())
+    }
+
+    @Test
+    fun touchingThePadStopsTheGlide() {
+        val t = FakeTransport()
+        val e = HidEngine(t, CoroutineScope(Dispatchers.Default))
+        e.fling(0f, -3000f)
+        Thread.sleep(120)
+        e.touchStart()
+        e.touchEnd()
+        Thread.sleep(40)
+        val n = t.mouse.size
+        Thread.sleep(150)
+        assertEquals(n, t.mouse.size)
     }
 }

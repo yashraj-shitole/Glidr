@@ -74,6 +74,7 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
                 engine.motion.acceleration = s.acceleration
                 engine.scrollSpeed = s.scrollSpeed
                 engine.naturalScroll = s.naturalScroll
+                engine.flingEnabled = s.flingScroll
                 engine.layout = KeyboardLayout.byId(s.layoutId)
                 _loaded.value = true
             }

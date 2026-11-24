@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -32,6 +33,9 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     private val zoom = MotionPipeline.ScrollAccumulator()
 
     var naturalScroll = true
+
+    /** Momentum scrolling: keep scrolling, slowing down, after the fingers lift. */
+    var flingEnabled = true
     var scrollSpeed = 1.2f
     var layout: KeyboardLayout = KeyboardLayout.US
 
@@ -57,6 +61,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     private var pendingPan = 0
     private var ticker: ScheduledFuture<*>? = null
     private var lastMoveNs = 0L
+    private var flingJob: Job? = null
 
     /** True while Ctrl is held down for a pinch. Guarded by [lock]. */
     private var zoomCtrl = false
@@ -70,6 +75,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
 
     /** Start the 250 Hz sender while a finger is down. */
     fun touchStart() {
+        cancelFling() // touching the pad stops a glide, like a real trackpad
         synchronized(lock) {
             motion.reset()
             scroll.reset()
@@ -111,13 +117,51 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         // Natural: content follows the fingers (finger up -> wheel down). HID wheel > 0 scrolls up, pan > 0 right.
         val sign = if (naturalScroll) 1 else -1
         val px = PX_PER_DETENT / scrollSpeed
-        val v = scroll.add(dyPx, px)
-        val h = panScroll.add(dxPx, px)
-        synchronized(lock) {
+        // The glide runs on its own thread while a new touch may already be scrolling, so the carry is under the lock.
+        return synchronized(lock) {
+            val v = scroll.add(dyPx, px)
+            val h = panScroll.add(dxPx, px)
             pendingWheel += sign * v
             pendingPan -= sign * h
+            kotlin.math.abs(v) + kotlin.math.abs(h)
         }
-        return kotlin.math.abs(v) + kotlin.math.abs(h)
+    }
+
+    /**
+     * Glides on after a scroll gesture, starting at the release velocity (px per second, same sign as the finger
+     * movement) and slowing exponentially. Whole detents only: a smoother wheel would need a descriptor change.
+     * A new touch ([touchStart]) or [cancelFling] stops it.
+     */
+    fun fling(vxPxPerSec: Float, vyPxPerSec: Float) {
+        if (!flingEnabled) return
+        var vx = vxPxPerSec
+        var vy = vyPxPerSec
+        val speed = kotlin.math.hypot(vx, vy)
+        if (speed < FLING_MIN_SPEED) return
+        if (speed > FLING_MAX_SPEED) {
+            vx *= FLING_MAX_SPEED / speed
+            vy *= FLING_MAX_SPEED / speed
+        }
+        flingJob?.cancel()
+        flingJob = scope.launch {
+            var last = System.nanoTime()
+            while (isActive && kotlin.math.hypot(vx, vy) > FLING_STOP_SPEED) {
+                delay(FLING_FRAME_MS)
+                val now = System.nanoTime()
+                val dt = (now - last) / 1_000_000_000f
+                last = now
+                scrollBy(vx * dt, vy * dt)
+                flushNow()
+                val k = exp(-FLING_DECAY * dt)
+                vx *= k
+                vy *= k
+            }
+        }
+    }
+
+    fun cancelFling() {
+        flingJob?.cancel()
+        flingJob = null
     }
 
     /**
@@ -376,5 +420,10 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         const val NUDGE_BACK_MS = 30L
         const val PX_PER_DETENT = 28f
         const val PX_PER_ZOOM_DETENT = 40f
+        const val FLING_MIN_SPEED = 400f // px/s: slower releases just stop
+        const val FLING_STOP_SPEED = 60f
+        const val FLING_MAX_SPEED = 6000f
+        const val FLING_DECAY = 3.2f // per second; a 2000 px/s flick glides about 600 px
+        const val FLING_FRAME_MS = 16L
     }
 }

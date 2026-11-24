@@ -254,4 +254,6 @@
     <string name="shortcut_connect_short">Connect</string>
     <string name="shortcut_connect_long">Connect to PC</string>
     <string name="shortcut_media_long">Open Media remote</string>
+    <string name="fling_scroll">Momentum scrolling</string>
+    <string name="fling_scroll_sub">Scrolling glides on after you lift your fingers</string>
 </resources>
