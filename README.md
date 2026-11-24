@@ -15,6 +15,9 @@ It uses the Bluetooth HID Device profile, so the PC needs no software for basic 
 
 All downloads are on the [Releases page](https://github.com/yashraj-shitole/Glidr/releases). The APK is signed with a debug key.
 
+**Upgrading from 2.0.0 or earlier:** uninstall Glidr first. The signing key changed in 2.1.0, so Android will not install
+it over an older version, and uninstalling resets your Glidr settings.
+
 ## Use it
 
 1. **Phone:** install the app (or build it: `cd android && gradlew.bat installDebug`).
