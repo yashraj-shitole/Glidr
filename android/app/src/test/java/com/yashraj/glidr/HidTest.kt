@@ -182,4 +182,21 @@ class HidTest {
         e.zoomEnd()
         assertEquals((-1).toByte(), t.mouse.last()[3])
     }
+
+    @Test
+    fun cancellingTypingNeverLeavesAKeyHeld() {
+        val t = FakeTransport()
+        val e = HidEngine(t, CoroutineScope(Dispatchers.Default))
+        e.typeText("the quick brown fox jumps over the lazy dog")
+        Thread.sleep(60) // a few keys are out, many are still queued
+        e.cancelTyping()
+        val deadline = System.currentTimeMillis() + 2_000
+        while (e.typing.value && System.currentTimeMillis() < deadline) Thread.sleep(5)
+        assertEquals(false, e.typing.value)
+        val sent = t.keyboard.size
+        assertTrue(sent in 2 until 80) // stopped early, not run to the end
+        assertEquals(List(8) { 0.toByte() }, t.keyboard.last()) // all keys released
+        Thread.sleep(100)
+        assertEquals(sent, t.keyboard.size) // and nothing more arrives afterwards
+    }
 }

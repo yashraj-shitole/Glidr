@@ -10,6 +10,12 @@ import kotlin.math.exp
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -272,21 +278,39 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         }
     }
 
+    private val _typing = MutableStateFlow(false)
+
+    /** True while [typeText] is still sending keys, so the UI can offer a Stop button. */
+    val typing: StateFlow<Boolean> = _typing.asStateFlow()
+    private var typingJob: Job? = null
+
     /** Types [text] through the current layout. Characters the layout cannot produce are skipped. */
     fun typeText(text: String) {
-        scope.launch {
-            keyLock.withLock {
-                for (c in text) {
-                    val stroke = layout.strokeFor(c) ?: continue
-                    HidReports.keyboard(keyBuf, stroke.modifiers, stroke.usage)
-                    transport.sendKeyboard(keyBuf)
-                    delay(KEY_MS)
-                    HidReports.keyboard(keyBuf, 0)
-                    transport.sendKeyboard(keyBuf)
-                    delay(KEY_MS)
+        typingJob = scope.launch {
+            _typing.value = true
+            try {
+                keyLock.withLock {
+                    for (c in text) {
+                        val stroke = layout.strokeFor(c) ?: continue
+                        tapKey(stroke.usage, stroke.modifiers)
+                    }
+                }
+            } finally {
+                // A cancel can land between key-down and key-up; never leave a key held on the PC.
+                withContext(NonCancellable) {
+                    keyLock.withLock {
+                        HidReports.keyboard(keyBuf, 0)
+                        transport.sendKeyboard(keyBuf)
+                    }
+                    _typing.value = false
                 }
             }
         }
+    }
+
+    /** Stops a [typeText] that is still running. Keys already sent stay typed. */
+    fun cancelTyping() {
+        typingJob?.cancel()
     }
 
     /**

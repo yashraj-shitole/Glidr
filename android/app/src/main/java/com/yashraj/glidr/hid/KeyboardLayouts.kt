@@ -99,6 +99,20 @@ object Keys {
     const val L = 0x0F
     const val D = 0x07
     const val R = 0x15
+    const val E = 0x08
+    const val CAPS_LOCK = 0x39
+    const val F1 = 0x3A // F1..F12 are F1 + 0..11
+    const val PRINT_SCREEN = 0x46
+    const val SCROLL_LOCK = 0x47
+    const val PAUSE = 0x48
+    const val INSERT = 0x49
+    const val HOME = 0x4A
+    const val PAGE_UP = 0x4B
+    const val DELETE = 0x4C
+    const val END = 0x4D
+    const val PAGE_DOWN = 0x4E
+    const val NUM_LOCK = 0x53
+    const val MENU = 0x65 // the highest usage the keyboard descriptor allows
 
     const val CONSUMER_PLAY_PAUSE = 0x00CD
     const val CONSUMER_NEXT = 0x00B5
