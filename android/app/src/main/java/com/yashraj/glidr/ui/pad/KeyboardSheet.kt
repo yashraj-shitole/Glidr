@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yashraj.glidr.R
 import com.yashraj.glidr.data.Settings
@@ -409,7 +410,7 @@ private fun Meter(level: Float, reversed: Boolean) {
 /**
  * One key. Fires on press (not on release) so typing feels immediate; with [repeat] a held key fires again after
  * [REPEAT_DELAY_MS] and then every [REPEAT_MS] while [repeatWhile] stays true (so a dropped link does not buzz).
- * Pressed keys darken. The semantics make it a button for TalkBack, which cannot see the raw touch handling.
+ * Pressed keys darken. Single-glyph function keys (arrows, shift, backspace) use the larger body size so they stay legible. The semantics make it a button for TalkBack, which cannot see the raw touch handling.
  */
 @Composable
 private fun Key(
@@ -463,5 +464,5 @@ private fun Key(
                 }
             },
         contentAlignment = Alignment.Center,
-    ) { Label(label, color = fg, style = if (fn) Glidr.type.small else Glidr.type.body, maxLines = 1) }
+    ) { Label(label, color = fg, style = if (fn && label.length > 1) Glidr.type.small else if (fn) Glidr.type.body.copy(fontSize = 18.sp) else Glidr.type.body, maxLines = 1) }
 }

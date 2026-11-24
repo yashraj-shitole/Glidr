@@ -260,7 +260,12 @@ fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAw
             }
         }
         if (!connected) {
-            Label(stringResource(R.string.pad_not_connected), Modifier.align(Alignment.Center).padding(horizontal = Space.xl), c.dim, Glidr.type.body)
+            // Centered, and padded past the 48dp scroll strip on both sides so the line never runs under it.
+            Label(
+                stringResource(R.string.pad_not_connected),
+                Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal = 64.dp), c.dim,
+                Glidr.type.body.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+            )
         }
         Box(Modifier.align(Alignment.TopStart).padding(14.dp).clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(horizontal = 11.dp, vertical = 6.dp)) {
             Label(stringResource(R.string.speed_chip, settings.sensitivity), color = c.dim, style = Glidr.type.mono)

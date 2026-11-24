@@ -171,7 +171,7 @@ fun RootScreen(
                         keyboardOnly -> Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.BottomCenter) {
                             KeyboardSheet(vm.engine, s, vm.stt, hasMic, onRequestMic)
                         }
-                        page == Page.Pad.ordinal -> Column(Modifier.fillMaxSize().padding(horizontal = Space.lg)) {
+                        page == Page.Pad.ordinal -> Column(Modifier.fillMaxSize().padding(start = Space.lg, end = Space.lg, bottom = if (kb) Space.sm else 0.dp)) {
                             PadSurface(
                                 vm.engine, s, conn == ConnectionState.Connected,
                                 if (awake.active) {
