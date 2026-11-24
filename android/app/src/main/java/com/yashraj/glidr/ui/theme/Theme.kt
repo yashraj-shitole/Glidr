@@ -25,27 +25,42 @@ class GlidrColors(
 )
 
 /**
- * Corner radii, one scale for the whole app. Nested shapes follow `inner = outer - padding` (segmented control
- * 14 → 11, dock 32 → 26) so curves stay concentric.
+ * Layout system. Sources: Material Design layout metrics (components on an 8dp grid, type and icons on a 4dp
+ * sub-grid, 16dp side margins, 48dp touch targets with at least 8dp between neighbours) and Apple's HIG
+ * (44pt minimum hit area).
+ *
+ * Rules the screens follow:
+ *  - Screen gutter 16 ([Space.lg]).
+ *  - Related items inside a group 8 ([Space.sm]); a label above its control 12 ([Space.md]).
+ *  - Separate components stacked on a screen (pad, mouse buttons, keyboard) 12 ([Space.md]); sections 24 ([Space.xl]).
+ *  - Card inner padding 16 in lists, 20 in dialogs and sheets. Pill button text padding 20.
+ *  - Key grids are the one exception: 6 ([Space.key]) both across and down, because ten 44dp keys must fit
+ *    a 360dp phone. Keys are 44dp tall, the HIG minimum.
+ *  - Nothing off the 4dp grid except hairlines (1, 1.5, 2) and drawn graphics.
  */
-object Radius {
-    val key = 12.dp
-    val chip = 14.dp
-    val control = 20.dp
-    val tile = 22.dp
-    val card = 24.dp
-    val sheet = 28.dp
-    val pad = 32.dp
-}
-
-/** Spacing scale (multiples of 2 or 4): gaps inside a group, between groups, and the screen gutter. */
 object Space {
     val hair = 2.dp
-    val xs = 6.dp
+    val xs = 4.dp
     val sm = 8.dp
     val md = 12.dp
     val lg = 16.dp
     val xl = 24.dp
+
+    /** Gap between keys, across and down. */
+    val key = 6.dp
+}
+
+/**
+ * Corner radii on one scale. Nested shapes follow `inner = outer - inset`, so curves stay concentric:
+ * segmented control 16 - 4 = 12 ([key]), dock `h/2 - 4`.
+ */
+object Radius {
+    val key = 12.dp
+    val chip = 16.dp
+    val control = 20.dp
+    val card = 24.dp
+    val sheet = 28.dp
+    val pad = 32.dp
 }
 
 private val ACCENTS = listOf(

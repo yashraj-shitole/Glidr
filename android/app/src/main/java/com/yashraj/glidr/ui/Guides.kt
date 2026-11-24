@@ -85,7 +85,7 @@ private val GESTURES = listOf(
 @Composable
 fun GestureList() {
     val c = Glidr.colors
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Space.md)) {
         for ((gesture, effect) in GESTURES) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.md), verticalAlignment = Alignment.Top) {
                 Label(stringResource(gesture), Modifier.weight(1f), c.text, Glidr.type.small)

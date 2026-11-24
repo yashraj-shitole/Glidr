@@ -107,7 +107,7 @@ fun Label(text: String, modifier: Modifier = Modifier, color: Color = Glidr.colo
 enum class Ico { Mic, Settings, Awake, Keyboard, Back, Down, Pad, Media, Play, Pause, Prev, Next, Stop, Mute, VolUp, VolDown }
 
 @Composable
-fun Icon(kind: Ico, tint: Color, size: Dp = 22.dp) {
+fun Icon(kind: Ico, tint: Color, size: Dp = 24.dp) {
     val hole = Glidr.colors.s2
     Canvas(Modifier.size(size)) {
         val w = this.size.width
@@ -171,16 +171,16 @@ val Scrim = Color(0x99000000)
 @Composable
 fun Gap(h: Dp) = Spacer(Modifier.height(h))
 
-/** Segmented control with a springy selected pill. Each segment is 48dp tall; the 3dp frame keeps radii concentric (14 → 11). */
+/** Segmented control with a springy selected pill. Each segment is 48dp tall; the 4dp frame keeps radii concentric (16 → 12). */
 @Composable
 fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = Glidr.colors
-    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(Space.hair)) {
+    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(Space.xs), horizontalArrangement = Arrangement.spacedBy(Space.hair)) {
         options.forEachIndexed { i, label ->
             val on = i == selected
             val bg by animateColorAsState(if (on) c.accent else Color.Transparent, motionSpec(), label = "seg")
             Box(
-                Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Radius.chip - 3.dp)).background(bg)
+                Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Radius.chip - Space.xs)).background(bg)
                     .selectable(selected = on, role = Role.Tab, onClick = { onSelect(i) }),
                 contentAlignment = Alignment.Center,
             ) { Label(label, color = if (on) c.ink else c.dim, maxLines = 1) }
@@ -195,7 +195,7 @@ fun ToggleSwitch(on: Boolean) {
     val bg by animateColorAsState(if (on) c.accent else c.s3, motionSpec(), label = "sw")
     val x by animateFloatAsState(if (on) 20f else 0f, motionSpec(), label = "swx")
     Box(Modifier.size(width = 52.dp, height = 32.dp).clip(CircleShape).background(bg).clearAndSetSemantics {}) {
-        Box(Modifier.padding(start = (3 + x).dp, top = 3.dp).size(26.dp).clip(CircleShape).background(if (on) c.ink else c.dim))
+        Box(Modifier.padding(start = (4 + x).dp, top = 4.dp).size(24.dp).clip(CircleShape).background(if (on) c.ink else c.dim))
     }
 }
 

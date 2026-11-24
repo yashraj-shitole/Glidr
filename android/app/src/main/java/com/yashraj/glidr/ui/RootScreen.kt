@@ -171,7 +171,7 @@ fun RootScreen(
                         keyboardOnly -> Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.BottomCenter) {
                             KeyboardSheet(vm.engine, s, vm.stt, hasMic, onRequestMic)
                         }
-                        page == Page.Pad.ordinal -> Column(Modifier.fillMaxSize().padding(start = Space.lg, end = Space.lg, bottom = if (kb) Space.sm else 0.dp)) {
+                        page == Page.Pad.ordinal -> Column(Modifier.fillMaxSize().padding(start = Space.lg, end = Space.lg, bottom = if (kb) Space.md else 0.dp)) {
                             PadSurface(
                                 vm.engine, s, conn == ConnectionState.Connected,
                                 if (awake.active) {
@@ -233,7 +233,7 @@ private fun connectionLabel(state: ConnectionState, host: String?): String = whe
 private fun Toast(text: String) {
     val c = Glidr.colors
     Box(
-        Modifier.clip(RoundedCornerShape(Radius.card)).background(c.text).padding(horizontal = Space.lg, vertical = 10.dp)
+        Modifier.clip(RoundedCornerShape(Radius.card)).background(c.text).padding(horizontal = Space.lg, vertical = Space.md)
             .semantics { liveRegion = LiveRegionMode.Polite },
     ) { Label(text, color = c.bg, style = Glidr.type.small) }
 }
@@ -269,7 +269,7 @@ private fun TopBar(
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
         PressBox(onPill, Modifier.height(48.dp), stringResource(R.string.connection_status, label), RoundedCornerShape(Radius.card)) {
-            Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md)) {
                 StatusDot(state)
                 Label(label)
             }
@@ -281,7 +281,7 @@ private fun TopBar(
     }
 }
 
-/** Pad / Media tabs plus the keyboard button. The tab pill's inner radius is its outer radius minus the 6dp frame. */
+/** Pad / Media tabs plus the keyboard button. The tab pill's inner radius is its outer radius minus the 4dp frame. */
 @Composable
 private fun Dock(media: Boolean, kbOn: Boolean, compact: Boolean, onPad: () -> Unit, onMedia: () -> Unit, onKb: () -> Unit) {
     val c = Glidr.colors
@@ -289,11 +289,11 @@ private fun Dock(media: Boolean, kbOn: Boolean, compact: Boolean, onPad: () -> U
     val outer = h / 2
     Row(
         Modifier.fillMaxWidth().padding(horizontal = Space.lg, vertical = if (compact) Space.sm else Space.lg).height(h),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(Space.sm),
     ) {
-        Row(Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(outer)).background(c.s2).border(1.dp, c.line, RoundedCornerShape(outer)).padding(6.dp)) {
-            DockTab(Modifier.weight(1f), stringResource(R.string.pad), Ico.Pad, !media, outer - 6.dp, onPad)
-            DockTab(Modifier.weight(1f), stringResource(R.string.media), Ico.Media, media, outer - 6.dp, onMedia)
+        Row(Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(outer)).background(c.s2).border(1.dp, c.line, RoundedCornerShape(outer)).padding(Space.xs)) {
+            DockTab(Modifier.weight(1f), stringResource(R.string.pad), Ico.Pad, !media, outer - Space.xs, onPad)
+            DockTab(Modifier.weight(1f), stringResource(R.string.media), Ico.Media, media, outer - Space.xs, onMedia)
         }
         PressBox(onKb, Modifier.size(h), stringResource(R.string.keyboard), CircleShape, background = if (kbOn) c.text else c.s2) {
             Icon(Ico.Keyboard, if (kbOn) c.bg else c.text)
@@ -326,12 +326,12 @@ private fun DeviceSheet(
             Modifier.fillMaxWidth().heightIn(max = maxHeight * 0.92f)
                 .clip(RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet)).background(c.s1)
                 .clickable(enabled = false) {}.verticalScroll(rememberScrollState()).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {
             Label(stringResource(R.string.choose_pc), color = c.text, style = Glidr.type.heading)
             if (pairStep < 4) PairGuide(pairStep, onPair)
             if (list.isEmpty()) Label(stringResource(R.string.no_paired), color = c.dim, style = Glidr.type.body)
-            Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.heightIn(max = 256.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
                 for (d in list) {
                     PressBox({ onPick(d) }, Modifier.fillMaxWidth().height(56.dp), d.name) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = Space.lg), horizontalArrangement = Arrangement.SpaceBetween) {

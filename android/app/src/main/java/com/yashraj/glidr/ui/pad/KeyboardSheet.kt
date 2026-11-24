@@ -65,9 +65,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 private val LETTER_ROWS = listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
 private val SYMBOL_ROWS = listOf("1234567890", "@#$%&-+()/", "*\":;!?=_^'", "[]{}<>\\|~`")
 
-/** Every key is 44dp tall. Six rows plus five 8dp gaps make the 304dp working area all four tabs share. */
+/** Every key is 44dp tall. Six rows plus five 6dp gaps make the 294dp working area all four tabs share. */
 private val KEY_HEIGHT = 44.dp
-private val KEYS_AREA = KEY_HEIGHT * 6 + Space.sm * 5
+private val KEYS_AREA = KEY_HEIGHT * 6 + Space.key * 5
 
 /** A held key fires once on press, again after this delay, then at the repeat interval. */
 private const val REPEAT_DELAY_MS = 400L
@@ -155,7 +155,7 @@ fun KeyboardSheet(
     val sheetShape = RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet)
 
     Column(
-        modifier.fillMaxWidth().clip(sheetShape).background(c.s1).border(1.dp, c.line, sheetShape).padding(10.dp),
+        modifier.fillMaxWidth().clip(sheetShape).background(c.s1).border(1.dp, c.line, sheetShape).padding(horizontal = Space.sm, vertical = Space.md),
         verticalArrangement = Arrangement.spacedBy(Space.sm),
     ) {
         Segmented(
@@ -166,7 +166,7 @@ fun KeyboardSheet(
         /** Esc, Tab, the latching Ctrl / Alt / Win and the arrows: shared by Keys and More so combos like Ctrl+Home work. */
         @Composable
         fun ModifierRow() {
-            Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                 Key("Esc", Modifier.weight(1f), fn = true) { send(Keys.ESC) }
                 Key("Tab", Modifier.weight(1f), fn = true) { send(Keys.TAB) }
                 Key("Ctrl", Modifier.weight(1f), on = mods and HidReports.MOD_CTRL != 0, fn = true) { latch(HidReports.MOD_CTRL) }
@@ -180,27 +180,27 @@ fun KeyboardSheet(
         }
 
         when (Tab.entries[tab]) {
-            Tab.Keys -> {
+            Tab.Keys -> Column(verticalArrangement = Arrangement.spacedBy(Space.key)) {
                 ModifierRow()
                 if (symbols) {
                     for (row in SYMBOL_ROWS) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                             for (ch in row) Key(ch.toString(), Modifier.weight(1f)) { typeChar(ch) }
                         }
                     }
                 } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                         for (ch in "1234567890") Key(ch.toString(), Modifier.weight(1f)) { typeChar(ch) }
                     }
                     for ((idx, row) in LETTER_ROWS.withIndex()) {
-                        Row(Modifier.padding(horizontal = if (idx == 1) 16.dp else 0.dp), horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+                        Row(Modifier.padding(horizontal = if (idx == 1) 16.dp else 0.dp), horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                             if (idx == 2) Key("⇧", Modifier.weight(1.5f), stringResource(R.string.key_shift), on = shiftLatched, fn = true) { shiftLatched = !shiftLatched; haptics.play(Haptic.Tick, level) }
                             for (ch in row) Key(if (shiftLatched) ch.uppercase() else ch.toString(), Modifier.weight(1f)) { typeChar(ch) }
                             if (idx == 2) Key("⌫", Modifier.weight(1.5f), stringResource(R.string.key_backspace), fn = true, repeat = true, repeatWhile = live) { send(Keys.BACKSPACE) }
                         }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                     Key(
                         if (symbols) "ABC" else "123", Modifier.weight(1.4f),
                         stringResource(if (symbols) R.string.key_letters else R.string.key_symbols), fn = true,
@@ -216,8 +216,8 @@ fun KeyboardSheet(
                 }
             }
 
-            // The grid scrolls inside the same 304dp the key layers use, so the sheet never changes height between tabs.
-            // Cards are 72dp, so the fourth row peeks 8dp past the edge to show there is more below.
+            // The grid scrolls inside the same 294dp the key layers use, so the sheet never changes height between tabs.
+            // Cards are 72dp, so the fourth row peeks 14dp past the edge to show there is more below.
             Tab.Shortcuts -> Column(Modifier.height(KEYS_AREA).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
                 for (rowItems in SHORTCUTS.chunked(3)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
@@ -234,7 +234,7 @@ fun KeyboardSheet(
                                             haptics.play(Haptic.Reject, settings.haptics)
                                         }
                                     }
-                                    .padding(10.dp),
+                                    .padding(Space.md),
                                 verticalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Label(name, maxLines = 1)
@@ -245,17 +245,17 @@ fun KeyboardSheet(
                 }
             }
 
-            Tab.More -> {
+            Tab.More -> Column(verticalArrangement = Arrangement.spacedBy(Space.key)) {
                 ModifierRow()
                 for (fRow in 0..1) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                         for (i in 0 until 6) {
                             val n = fRow * 6 + i
                             Key("F${n + 1}", Modifier.weight(1f), fn = true) { send(Keys.F1 + n, shiftBit) }
                         }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                     Key("Home", Modifier.weight(1f), fn = true) { send(Keys.HOME, shiftBit) }
                     Key("End", Modifier.weight(1f), fn = true) { send(Keys.END, shiftBit) }
                     Key("PgUp", Modifier.weight(1f), fn = true, repeat = true, repeatWhile = live) { send(Keys.PAGE_UP, shiftBit) }
@@ -263,7 +263,7 @@ fun KeyboardSheet(
                     Key("Ins", Modifier.weight(1f), fn = true) { send(Keys.INSERT, shiftBit) }
                     Key("Del", Modifier.weight(1f), fn = true, repeat = true, repeatWhile = live) { send(Keys.DELETE, shiftBit) }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                     Key("Caps", Modifier.weight(1f), fn = true) { send(Keys.CAPS_LOCK) }
                     Key("PrtSc", Modifier.weight(1f), fn = true) { send(Keys.PRINT_SCREEN, shiftBit) }
                     Key("ScrLk", Modifier.weight(1f), fn = true) { send(Keys.SCROLL_LOCK) }
@@ -271,7 +271,7 @@ fun KeyboardSheet(
                     Key("Menu", Modifier.weight(1f), fn = true) { send(Keys.MENU) }
                     Key("NumLk", Modifier.weight(1f), fn = true) { send(Keys.NUM_LOCK) }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                     Key("⇧", Modifier.weight(1.5f), stringResource(R.string.key_shift), on = shiftLatched, fn = true) { shiftLatched = !shiftLatched; haptics.play(Haptic.Tick, level) }
                     Key(stringResource(R.string.space), Modifier.weight(3.6f), repeat = true, repeatWhile = live) { send(Keys.SPACE) }
                     Key("⌫", Modifier.weight(1.5f), stringResource(R.string.key_backspace), fn = true, repeat = true, repeatWhile = live) { send(Keys.BACKSPACE) }
@@ -319,7 +319,7 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
         }
     }
 
-    Column(Modifier.height(KEYS_AREA), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.height(KEYS_AREA), verticalArrangement = Arrangement.spacedBy(Space.md)) {
         Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(Radius.control)).background(c.s2).border(1.dp, c.line, RoundedCornerShape(Radius.control)).padding(Space.md)) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Label(hint, color = if (text.isEmpty() || note != null || state == SttState.Error) c.dim else c.text, style = Glidr.type.body)
@@ -353,7 +353,7 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
                         }
                     },
                 contentAlignment = Alignment.Center,
-            ) { Icon(Ico.Mic, if (listening) c.ink else c.text, 26.dp) }
+            ) { Icon(Ico.Mic, if (listening) c.ink else c.text, 24.dp) }
             Box(Modifier.size(Space.xl))
             Meter(micLevel, reversed = false)
         }

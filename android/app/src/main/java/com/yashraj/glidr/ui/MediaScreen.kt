@@ -83,12 +83,12 @@ fun MediaScreen(
     val transport: @Composable () -> Unit = {
         val side = if (compact) 56.dp else 68.dp
         val centre = if (compact) 80.dp else 104.dp
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (compact) Space.lg else 22.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-            PressBox({ send(Keys.CONSUMER_PREV) }, Modifier.size(side), stringResource(R.string.prev_track), CircleShape) { Icon(Ico.Prev, c.text, 26.dp) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (compact) Space.lg else Space.xl, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+            PressBox({ send(Keys.CONSUMER_PREV) }, Modifier.size(side), stringResource(R.string.prev_track), CircleShape) { Icon(Ico.Prev, c.text, 24.dp) }
             PressBox({ send(Keys.CONSUMER_PLAY_PAUSE) }, Modifier.size(centre), stringResource(R.string.play_pause), CircleShape, background = c.accent, border = false) {
-                Icon(if (now?.playing == true) Ico.Pause else Ico.Play, c.ink, if (compact) 30.dp else 38.dp)
+                Icon(if (now?.playing == true) Ico.Pause else Ico.Play, c.ink, if (compact) 32.dp else 40.dp)
             }
-            PressBox({ send(Keys.CONSUMER_NEXT) }, Modifier.size(side), stringResource(R.string.next_track), CircleShape) { Icon(Ico.Next, c.text, 26.dp) }
+            PressBox({ send(Keys.CONSUMER_NEXT) }, Modifier.size(side), stringResource(R.string.next_track), CircleShape) { Icon(Ico.Next, c.text, 24.dp) }
         }
     }
     val tileH = if (compact) 60.dp else 76.dp
@@ -136,12 +136,12 @@ private fun NowPlayingCard(now: NowPlaying?, link: CompanionState, modifier: Mod
         if (now == null) {
             Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Ico.Media, c.dim, 44.dp)
-                Box(Modifier.height(14.dp))
+                Gap(Space.lg)
                 Label(
                     stringResource(if (link == CompanionState.Connected) R.string.nothing_playing else R.string.companion_missing),
                     color = c.text, style = Glidr.type.body,
                 )
-                Box(Modifier.height(6.dp))
+                Gap(Space.sm)
                 Label(
                     stringResource(if (link == CompanionState.Connected) R.string.nothing_playing_sub else R.string.companion_missing_sub),
                     color = c.dim, style = Glidr.type.small,
@@ -181,13 +181,13 @@ private fun NowPlayingCard(now: NowPlaying?, link: CompanionState, modifier: Mod
                 val sub = listOf(now.artist, now.app).filter { it.isNotBlank() }.joinToString(" · ")
                 if (sub.isNotEmpty()) Label(sub, color = c.dim, style = Glidr.type.small, maxLines = 1)
             }
-            Box(Modifier.height(14.dp))
+            Gap(Space.md)
             val frac = if (now.durationMs > 0) (elapsed.toFloat() / now.durationMs).coerceIn(0f, 1f) else 0f
             val progressText = stringResource(R.string.track_progress, fmt(elapsed), if (now.durationMs > 0) fmt(now.durationMs) else "--:--")
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(c.s3).semantics { contentDescription = progressText }) {
+            Box(Modifier.fillMaxWidth().height(Space.sm).clip(CircleShape).background(c.s3).semantics { contentDescription = progressText }) {
                 Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(CircleShape).background(c.accent))
             }
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth().padding(top = Space.sm), horizontalArrangement = Arrangement.SpaceBetween) {
                 Label(fmt(elapsed), color = c.dim, style = Glidr.type.mono)
                 Label(if (now.durationMs > 0) fmt(now.durationMs) else "--:--", color = c.dim, style = Glidr.type.mono)
             }
@@ -203,8 +203,8 @@ private fun fmt(ms: Long): String {
 @Composable
 private fun Tile(modifier: Modifier, height: Dp, icon: Ico, label: String, onClick: () -> Unit) {
     val c = Glidr.colors
-    PressBox(onClick, modifier.height(height), label, RoundedCornerShape(Radius.tile)) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    PressBox(onClick, modifier.height(height), label, RoundedCornerShape(Radius.card)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Space.xs)) {
             Icon(icon, c.text)
             Label(label, color = c.dim, style = Glidr.type.small)
         }
@@ -226,7 +226,7 @@ private fun VolumeStrip(engine: HidEngine, haptic: Int, height: Dp, modifier: Mo
     var offset by remember { mutableFloatStateOf(0f) }
     val grow by animateFloatAsState(if (pressed) 1.12f else 1f, motionSpec(), label = "volGrow")
     val border by animateColorAsState(if (pressed) c.accent else c.line, motionSpec(), label = "volBorder")
-    val shape = RoundedCornerShape(Radius.tile)
+    val shape = RoundedCornerShape(Radius.card)
     val desc = stringResource(R.string.volume_strip)
     val upLabel = stringResource(R.string.vol_up)
     val downLabel = stringResource(R.string.vol_down)
@@ -297,7 +297,7 @@ private fun VolumeStrip(engine: HidEngine, haptic: Int, height: Dp, modifier: Mo
                 .clip(shape).background(c.s2).border(1.dp, border, shape)
                 .drawBehind { dialTicks(false, offset, c.dim, 30.dp.toPx(), 12.dp.toPx(), 1.5.dp.toPx()) },
         )
-        Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = Space.xl), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Icon(Ico.VolDown, c.text, 24.dp)
             if (steps != 0) Label(if (steps > 0) "+$steps" else "−${-steps}", color = c.accentText, style = Glidr.type.mono)
             Icon(Ico.VolUp, c.text, 24.dp)

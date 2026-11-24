@@ -267,11 +267,11 @@ fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAw
                 Glidr.type.body.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center),
             )
         }
-        Box(Modifier.align(Alignment.TopStart).padding(14.dp).clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(horizontal = 11.dp, vertical = 6.dp)) {
+        Box(Modifier.align(Alignment.TopStart).padding(Space.lg).clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(horizontal = Space.md, vertical = Space.sm)) {
             Label(stringResource(R.string.speed_chip, settings.sensitivity), color = c.dim, style = Glidr.type.mono)
         }
         if (keepAwakeChip != null) {
-            Box(Modifier.align(Alignment.TopEnd).padding(14.dp).clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(horizontal = 11.dp, vertical = 6.dp)) {
+            Box(Modifier.align(Alignment.TopEnd).padding(Space.lg).clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(horizontal = Space.md, vertical = Space.sm)) {
                 Label(keepAwakeChip, color = c.dim, style = Glidr.type.mono)
             }
         }
@@ -281,7 +281,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAw
         ScrollStrip(
             engine, settings, onTouch,
             Modifier.align(if (settings.leftHanded) Alignment.CenterStart else Alignment.CenterEnd)
-                .padding(horizontal = 1.dp).fillMaxHeight(0.6f),
+                .fillMaxHeight(0.6f),
         )
     }
 }
@@ -300,7 +300,7 @@ private fun ScrollStrip(engine: HidEngine, settings: Settings, onTouch: (Boolean
     var offset by remember { mutableFloatStateOf(0f) }
     val widen by animateFloatAsState(if (pressed) 1.18f else 1f, motionSpec(), label = "strip")
     val borderColor by animateColorAsState(if (pressed) c.accent else c.line, motionSpec(), label = "stripBorder")
-    val shape = RoundedCornerShape(15.dp)
+    val shape = RoundedCornerShape(STRIP_WIDTH_DP / 2)
     val density = LocalDensity.current
     val stripDesc = stringResource(R.string.scroll_strip)
     Box(
@@ -349,7 +349,7 @@ private fun ScrollStrip(engine: HidEngine, settings: Settings, onTouch: (Boolean
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.width(30.dp).fillMaxHeight().graphicsLayer { scaleX = widen }
+            Modifier.width(STRIP_WIDTH_DP).fillMaxHeight().graphicsLayer { scaleX = widen }
                 .clip(shape).background(c.s2).border(1.dp, borderColor, shape)
                 .drawBehind { dialTicks(true, offset, c.dim, 12.dp.toPx(), 12.dp.toPx(), 1.5.dp.toPx()) },
         )
@@ -358,13 +358,16 @@ private fun ScrollStrip(engine: HidEngine, settings: Settings, onTouch: (Boolean
 
 private const val STRIP_ZONE_DP = 48
 
+/** The visible pill sits centred in the 48dp touch zone, so 8dp from the pad edge. */
+private val STRIP_WIDTH_DP = 32.dp
+
 @Composable
 fun MouseButtons(engine: HidEngine, settings: Settings, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val haptics = remember { Haptics(ctx) }
     val level = settings.haptics
     val order = if (settings.leftHanded) listOf(2, 1, 0) else listOf(0, 1, 2)
-    Row(modifier.fillMaxWidth().height(56.dp), horizontalArrangement = Arrangement.spacedBy(Space.sm + 2.dp)) {
+    Row(modifier.fillMaxWidth().height(56.dp), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
         for (i in order) {
             val (label, mask, w) = when (i) {
                 0 -> Triple(stringResource(R.string.left), HidReports.BUTTON_LEFT, 3f)

@@ -88,7 +88,7 @@ fun SettingsScreen(
                     }
                     Pad {
                         Label(stringResource(R.string.acceleration), color = c.text, style = Glidr.type.body)
-                        Gap(10.dp)
+                        Gap(Space.md)
                         Segmented(
                             listOf(stringResource(R.string.off), stringResource(R.string.accel_low), stringResource(R.string.accel_med), stringResource(R.string.accel_high)),
                             s.acceleration, { v -> update { it.copy(acceleration = v) } },
@@ -108,7 +108,7 @@ fun SettingsScreen(
                     Pad {
                         Label(stringResource(R.string.layout), color = c.text, style = Glidr.type.body)
                         Label(stringResource(R.string.layout_sub), color = c.dim, style = Glidr.type.small)
-                        Gap(10.dp)
+                        Gap(Space.md)
                         val ids = KeyboardLayout.all.map { it.id }
                         Segmented(KeyboardLayout.all.map { it.label }, ids.indexOf(s.layoutId).coerceAtLeast(0), { i -> update { it.copy(layoutId = ids[i]) } })
                     }
@@ -120,12 +120,12 @@ fun SettingsScreen(
                         Pad {
                             Label(stringResource(R.string.nudge_style), color = c.text, style = Glidr.type.body)
                             Label(stringResource(R.string.nudge_style_sub), color = c.dim, style = Glidr.type.small)
-                            Gap(10.dp)
+                            Gap(Space.md)
                             Segmented(listOf(stringResource(R.string.nudge_subtle), stringResource(R.string.nudge_roam)), if (s.nudgeRoam) 1 else 0, { v -> update { it.copy(nudgeRoam = v == 1) } })
                         }
                         Pad {
                             Label(stringResource(R.string.nudge_every), color = c.text, style = Glidr.type.body)
-                            Gap(10.dp)
+                            Gap(Space.md)
                             Segmented(
                                 listOf(stringResource(R.string.every_15s), stringResource(R.string.every_30s), stringResource(R.string.every_1m), stringResource(R.string.every_2m)),
                                 s.nudgeEvery, { v -> update { it.copy(nudgeEvery = v) } },
@@ -133,7 +133,7 @@ fun SettingsScreen(
                         }
                         Pad {
                             Label(stringResource(R.string.auto_stop), color = c.text, style = Glidr.type.body)
-                            Gap(10.dp)
+                            Gap(Space.md)
                             Segmented(
                                 listOf(stringResource(R.string.never), stringResource(R.string.stop_30m), stringResource(R.string.stop_1h), stringResource(R.string.stop_2h)),
                                 s.autoStop, { v -> update { it.copy(autoStop = v) } },
@@ -146,10 +146,10 @@ fun SettingsScreen(
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Label(stringResource(R.string.intensity), color = c.text, style = Glidr.type.body)
                             PressBox({ haptics.play(Haptic.Confirm, s.haptics) }, Modifier.height(48.dp), stringResource(R.string.feel_it), RoundedCornerShape(Radius.card)) {
-                                Label(stringResource(R.string.feel_it), Modifier.padding(horizontal = 18.dp))
+                                Label(stringResource(R.string.feel_it), Modifier.padding(horizontal = 20.dp))
                             }
                         }
-                        Gap(10.dp)
+                        Gap(Space.md)
                         Segmented(
                             listOf(stringResource(R.string.off), stringResource(R.string.hap_light), stringResource(R.string.hap_medium), stringResource(R.string.hap_strong)),
                             s.haptics, { v -> update { it.copy(haptics = v) }; haptics.play(Haptic.Click, v) },
@@ -161,12 +161,12 @@ fun SettingsScreen(
                 Section(stringResource(R.string.appearance)) {
                     Pad {
                         Label(stringResource(R.string.theme), color = c.text, style = Glidr.type.body)
-                        Gap(10.dp)
+                        Gap(Space.md)
                         Segmented(listOf(stringResource(R.string.theme_midnight), stringResource(R.string.theme_paper)), if (s.lightTheme) 1 else 0, { v -> update { it.copy(lightTheme = v == 1) } })
                     }
                     Pad {
                         Label(stringResource(R.string.accent), color = c.text, style = Glidr.type.body)
-                        Gap(10.dp)
+                        Gap(Space.md)
                         Row(horizontalArrangement = Arrangement.spacedBy(Space.lg)) {
                             ACCENT_COLORS.forEachIndexed { i, col ->
                                 val name = stringResource(ACCENT_NAME_RES[i])
@@ -297,7 +297,7 @@ private fun UpdateBanner(release: Release, onOpen: (String) -> Unit) {
             Label(stringResource(R.string.update_available_sub), color = c.dim, style = Glidr.type.small)
         }
         PressBox({ onOpen(release.downloadUrl) }, Modifier.height(48.dp), stringResource(R.string.download), RoundedCornerShape(Radius.card), background = c.accent, border = false) {
-            Label(stringResource(R.string.download), Modifier.padding(horizontal = 18.dp), c.ink)
+            Label(stringResource(R.string.download), Modifier.padding(horizontal = 20.dp), c.ink)
         }
     }
 }
@@ -323,19 +323,19 @@ private fun UpdateRow(version: String, state: UpdateState, onCheck: () -> Unit) 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     val c = Glidr.colors
-    Label(title.uppercase(), Modifier.padding(start = 4.dp, top = Space.xl, bottom = 10.dp), c.dim, Glidr.type.small)
+    Label(title.uppercase(), Modifier.padding(start = Space.xs, top = Space.xl, bottom = Space.sm), c.dim, Glidr.type.small)
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.card)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.card)).padding(horizontal = Space.lg)) { content() }
 }
 
 @Composable
 private fun Pad(content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 14.dp)) { content() }
+    Column(Modifier.fillMaxWidth().padding(vertical = Space.lg)) { content() }
 }
 
 @Composable
 private fun SliderRow(title: String, value: String, slider: @Composable () -> Unit) {
     val c = Glidr.colors
-    Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = Space.lg)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Label(title, color = c.text, style = Glidr.type.body)
             Label(value, color = c.accentText, style = Glidr.type.mono)
@@ -354,14 +354,14 @@ private fun ActionRow(
     actionDescription: String = title, onClick: () -> Unit,
 ) {
     val c = Glidr.colors
-    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = Space.sm), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = Space.md)) {
             Label(title, color = c.text, style = Glidr.type.body)
             if (sub.isNotEmpty()) Label(sub, color = if (subAccent) c.accentText else c.dim, style = Glidr.type.small)
         }
         if (showAction) {
             PressBox(onClick, Modifier.height(48.dp), actionDescription, RoundedCornerShape(Radius.card)) {
-                Label(action, Modifier.padding(horizontal = 18.dp))
+                Label(action, Modifier.padding(horizontal = 20.dp))
             }
         }
     }
@@ -372,7 +372,7 @@ private fun ActionRow(
 private fun SwitchRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
     val c = Glidr.colors
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).toggleable(value = on, role = Role.Switch, onValueChange = onChange).padding(vertical = 10.dp),
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).toggleable(value = on, role = Role.Switch, onValueChange = onChange).padding(vertical = Space.sm),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f).padding(end = Space.md)) {
@@ -450,7 +450,7 @@ private fun TryPad(sensitivity: Float, accel: Int) {
     ) {
         Label(stringResource(R.string.try_pad), color = c.dim, style = Glidr.type.small)
         Canvas(Modifier.fillMaxSize()) {
-            dot?.let { drawCircle(c.accent, 7.dp.toPx(), it) }
+            dot?.let { drawCircle(c.accent, 8.dp.toPx(), it) }
         }
     }
 }
