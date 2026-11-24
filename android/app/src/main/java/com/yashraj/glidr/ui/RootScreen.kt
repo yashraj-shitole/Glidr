@@ -173,7 +173,7 @@ fun RootScreen(
                         }
                         page == Page.Pad.ordinal -> Column(Modifier.fillMaxSize().padding(horizontal = Space.lg)) {
                             PadSurface(
-                                vm.engine, s,
+                                vm.engine, s, conn == ConnectionState.Connected,
                                 if (awake.active) {
                                     if (awake.paused) stringResource(R.string.awake_paused)
                                     else stringResource(R.string.awake_chip, "%d:%02d".format(awake.nextInSec / 60, awake.nextInSec % 60))

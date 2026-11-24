@@ -210,4 +210,8 @@
     <string name="g_three_down_do">Show desktop (Win + D)</string>
     <string name="g_strip">Edge strip</string>
     <string name="g_strip_do">Slide along it to scroll</string>
+    <string name="trackpad">Trackpad</string>
+    <string name="scroll_strip">Scroll strip</string>
+    <string name="pad_not_connected">Not connected. Tap the status pill to choose a PC.</string>
+    <string name="speed_chip">%1$.1f× speed</string>
 </resources>

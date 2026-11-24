@@ -22,14 +22,18 @@ private class FakeTransport : HidTransport {
     override val state: StateFlow<ConnectionState> = MutableStateFlow(ConnectionState.Connected)
     override val host: StateFlow<PcDevice?> = MutableStateFlow(null)
     val mouse = mutableListOf<List<Byte>>()
+    val keyboard = mutableListOf<List<Byte>>()
+
+    /** Every report in the order it was sent: "m" for mouse, "k" for keyboard. */
+    val log = mutableListOf<String>()
     override fun start() {}
     override fun stop() {}
     override fun retry() {}
     override fun bondedHosts() = emptyList<PcDevice>()
     override fun connect(device: PcDevice) {}
     override fun disconnect() {}
-    override fun sendMouse(buf: ByteArray): Boolean { mouse += buf.toList(); return true }
-    override fun sendKeyboard(buf: ByteArray) = true
+    override fun sendMouse(buf: ByteArray): Boolean { mouse += buf.toList(); log += "m"; return true }
+    override fun sendKeyboard(buf: ByteArray): Boolean { keyboard += buf.toList(); log += "k"; return true }
     override fun sendConsumer(buf: ByteArray) = true
 }
 
@@ -153,5 +157,29 @@ class HidTest {
         assertTrue(path.all { kotlin.math.abs(it[0]) <= 127 && kotlin.math.abs(it[1]) <= 127 })
         // Eases in and out: the middle step is bigger than the first.
         assertTrue(kotlin.math.abs(path[13][1]) > kotlin.math.abs(path[0][1]))
+    }
+
+    @Test
+    fun pinchHoldsCtrlWhileTheWheelTurnsThenLetsGo() {
+        val t = FakeTransport()
+        val e = HidEngine(t, CoroutineScope(Dispatchers.Unconfined))
+        assertEquals(2, e.zoomBy(90f)) // fingers apart: two detents, zoom in
+        e.zoomEnd()
+        assertEquals(HidReports.MOD_CTRL.toByte(), t.keyboard.first()[0])
+        assertEquals(0.toByte(), t.keyboard.last()[0])
+        assertEquals(2.toByte(), t.mouse.last()[3])
+        // Ctrl goes down before the wheel and comes up after it.
+        assertEquals(listOf("k", "m", "k"), t.log)
+    }
+
+    @Test
+    fun pinchInUsesNegativeWheelAndEndWithoutPinchSendsNothing() {
+        val t = FakeTransport()
+        val e = HidEngine(t, CoroutineScope(Dispatchers.Unconfined))
+        e.zoomEnd()
+        assertTrue(t.log.isEmpty())
+        assertEquals(1, e.zoomBy(-45f))
+        e.zoomEnd()
+        assertEquals((-1).toByte(), t.mouse.last()[3])
     }
 }

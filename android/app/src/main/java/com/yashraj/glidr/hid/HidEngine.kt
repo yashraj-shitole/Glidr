@@ -23,6 +23,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     val motion = MotionPipeline()
     private val scroll = MotionPipeline.ScrollAccumulator()
     private val panScroll = MotionPipeline.ScrollAccumulator()
+    private val zoom = MotionPipeline.ScrollAccumulator()
 
     var naturalScroll = true
     var scrollSpeed = 1.2f
@@ -32,6 +33,8 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     private val keyBuf = ByteArray(HidDescriptor.KEYBOARD_SIZE)
     private val consumerBuf = ByteArray(HidDescriptor.CONSUMER_SIZE)
 
+    /** Separate from [keyBuf] so a pinch holding Ctrl never shares a buffer with the keyboard sheet. */
+    private val zoomKeyBuf = ByteArray(HidDescriptor.KEYBOARD_SIZE)
     private val nudgeBuf = ByteArray(HidDescriptor.MOUSE_SIZE)
     private val nudgeLock = Mutex()
     private val keyLock = Mutex()
@@ -49,6 +52,9 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
     private var ticker: ScheduledFuture<*>? = null
     private var lastMoveNs = 0L
 
+    /** True while Ctrl is held down for a pinch. Guarded by [lock]. */
+    private var zoomCtrl = false
+
     private val sender: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "glidr-mouse").apply {
             isDaemon = true
@@ -62,6 +68,7 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
             motion.reset()
             scroll.reset()
             panScroll.reset()
+            zoom.reset()
             lastMoveNs = 0L
             if (ticker?.isDone == false) return
             ticker = sender.scheduleWithFixedDelay({ runCatching { tick() } }, 0, TICK_US, TimeUnit.MICROSECONDS)
@@ -105,6 +112,36 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
             pendingPan -= sign * h
         }
         return kotlin.math.abs(v) + kotlin.math.abs(h)
+    }
+
+    /**
+     * Pinch: holds Ctrl and turns the change in finger spread into wheel detents (apart = up = zoom in), which is
+     * how Windows apps zoom. Returns the detents produced. Call [zoomEnd] when the gesture finishes.
+     */
+    fun zoomBy(deltaPx: Float): Int {
+        val v = zoom.add(deltaPx, PX_PER_ZOOM_DETENT)
+        if (v == 0) return 0
+        synchronized(lock) {
+            if (!zoomCtrl) {
+                zoomCtrl = true
+                HidReports.keyboard(zoomKeyBuf, HidReports.MOD_CTRL)
+                transport.sendKeyboard(zoomKeyBuf)
+            }
+            pendingWheel += v
+        }
+        return kotlin.math.abs(v)
+    }
+
+    /** Sends the queued wheel steps, then lets go of Ctrl. Safe to call when no pinch happened. */
+    fun zoomEnd() {
+        zoom.reset()
+        if (!synchronized(lock) { zoomCtrl }) return
+        flushNow()
+        synchronized(lock) {
+            zoomCtrl = false
+            HidReports.keyboard(zoomKeyBuf, 0)
+            transport.sendKeyboard(zoomKeyBuf)
+        }
     }
 
     /** One sender step: release a fraction of the queued movement (exponential catch-up), scroll goes out whole. */
@@ -314,5 +351,6 @@ class HidEngine(private val transport: HidTransport, private val scope: Coroutin
         const val NUDGE_PX = 3
         const val NUDGE_BACK_MS = 30L
         const val PX_PER_DETENT = 28f
+        const val PX_PER_ZOOM_DETENT = 40f
     }
 }

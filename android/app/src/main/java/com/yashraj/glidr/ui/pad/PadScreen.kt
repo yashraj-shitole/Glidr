@@ -31,7 +31,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.draw.alpha
+import com.yashraj.glidr.ui.theme.Radius
+import com.yashraj.glidr.ui.theme.Space
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,12 +76,15 @@ private const val TAP_MAX_MS = 220L
 private const val SWIPE_PX = 90f
 private const val GRAB_SLOP_PX = 24f
 
+/** Combined finger travel before two fingers are classed as scroll or pinch. */
+private const val TWO_FINGER_DECIDE_PX = 12f
+
 /** Hold one finger still this long to grab: the left button goes down and moving drags. */
 private const val LONG_PRESS_MS = 400L
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, onTouch: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAwakeChip: String?, onTouch: (Boolean) -> Unit, modifier: Modifier = Modifier) {
     val c = Glidr.colors
     val ctx = LocalContext.current
     val haptics = remember { Haptics(ctx) }
@@ -86,12 +95,14 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
     var tapPoint by remember { mutableStateOf(Offset.Zero) }
     val ripple = remember { Animatable(1f) }
     val level = settings.haptics
+    val padDesc = stringResource(R.string.trackpad)
 
     Box(
         modifier
-            .clip(RoundedCornerShape(32.dp))
+            .semantics { contentDescription = padDesc }
+            .clip(RoundedCornerShape(Radius.pad))
             .background(c.s1)
-            .border(1.dp, c.line, RoundedCornerShape(32.dp))
+            .border(1.dp, c.line, RoundedCornerShape(Radius.pad))
             // Every value the gesture block reads must be a key, or it keeps using the value from when it started
             // (left-handed mode would leave the strip's dead zone on the old side; reduce motion a stale glass).
             .pointerInput(settings.tapToClick, level, settings.hapticScroll, settings.leftHanded, glass) {
@@ -101,6 +112,15 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                     val inStripX = if (settings.leftHanded) first.position.x < zone else first.position.x > size.width - zone
                     val inStripY = first.position.y > size.height * 0.2f && first.position.y < size.height * 0.8f
                     if (inStripX && inStripY) return@awaitEachGesture
+                    if (!engine.connected) {
+                        // Nothing to send to: say so once per touch and swallow the gesture instead of failing silently.
+                        haptics.play(Haptic.Reject, level)
+                        do {
+                            val ev = awaitPointerEvent()
+                            ev.changes.forEach { it.consume() }
+                        } while (ev.changes.any { it.pressed })
+                        return@awaitEachGesture
+                    }
                     onTouch(true)
                     engine.touchStart()
                     scope.launch { glass.press(first.position) }
@@ -113,6 +133,14 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                     var swipeX = 0f
                     var swipeY = 0f
                     var swiped = false
+                    // Two fingers are either a scroll or a pinch. The first few pixels decide which; until then the
+                    // scroll movement is held back (bufX/bufY) and replayed if it turns out to be a scroll.
+                    var twoDecided = false
+                    var pinching = false
+                    var cumSpread = 0f
+                    var cumPan = 0f
+                    var bufX = 0f
+                    var bufY = 0f
                     var lastMs = startMs
                     try {
                     do {
@@ -161,7 +189,24 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                                     engine.move(ch.position.x - px, ch.position.y - py, ch.uptimeMillis * 1_000_000L)
                                 }
                                 down.size == 2 && maxPointers == 2 -> {
-                                    if (engine.scrollBy(dx, dy) > 0 && settings.hapticScroll) haptics.play(Haptic.Tick, level)
+                                    val dSpread = (down[0].position - down[1].position).getDistance() -
+                                        (down[0].previousPosition - down[1].previousPosition).getDistance()
+                                    if (!twoDecided) {
+                                        cumSpread += abs(dSpread)
+                                        cumPan += abs(dx) + abs(dy)
+                                        bufX += dx
+                                        bufY += dy
+                                        if (cumSpread + cumPan >= TWO_FINGER_DECIDE_PX) {
+                                            twoDecided = true
+                                            pinching = cumSpread > cumPan
+                                            if (!pinching && engine.scrollBy(bufX, bufY) > 0 && settings.hapticScroll) haptics.play(Haptic.Tick, level)
+                                        }
+                                    } else if (pinching) {
+                                        travel += abs(dSpread) * 0.5f // a quick pinch must not count as a right-click tap
+                                        if (engine.zoomBy(dSpread) > 0 && settings.hapticScroll) haptics.play(Haptic.Tick, level)
+                                    } else if (engine.scrollBy(dx, dy) > 0 && settings.hapticScroll) {
+                                        haptics.play(Haptic.Tick, level)
+                                    }
                                 }
                                 down.size >= 3 -> {
                                     swipeX += dx
@@ -175,6 +220,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                         // Never leave the button stuck down, the 250 Hz sender running or keep-awake believing a
                         // finger is on the pad, even if the gesture is cancelled.
                         if (dragging) engine.buttonUp(HidReports.BUTTON_LEFT)
+                        engine.zoomEnd()
                         engine.touchEnd()
                         onTouch(false)
                     }
@@ -187,6 +233,9 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                             haptics.play(Haptic.Tick, level)
                         } else if (swipeY < -SWIPE_PX) {
                             engine.pressKey(Keys.TAB, HidReports.MOD_GUI)
+                            haptics.play(Haptic.Tick, level)
+                        } else if (swipeY > SWIPE_PX) {
+                            engine.pressKey(Keys.D, HidReports.MOD_GUI)
                             haptics.play(Haptic.Tick, level)
                         }
                         swiped = true
@@ -203,18 +252,21 @@ fun PadSurface(engine: HidEngine, settings: Settings, keepAwakeChip: String?, on
                 }
             },
     ) {
-        Canvas(Modifier.fillMaxSize()) {
+        Canvas(Modifier.fillMaxSize().alpha(if (connected) 1f else 0.45f)) {
             drawGlass(glass, c)
             val r = ripple.value
             if (r < 1f) {
                 drawCircle(c.accent.copy(alpha = 1f - r), (8 + 47 * r).dp.toPx(), tapPoint, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
             }
         }
-        Box(Modifier.align(Alignment.TopStart).padding(14.dp).clip(RoundedCornerShape(14.dp)).background(c.s2).padding(horizontal = 11.dp, vertical = 6.dp)) {
-            Label("%.1f× speed".format(settings.sensitivity), color = c.dim, style = Glidr.type.mono)
+        if (!connected) {
+            Label(stringResource(R.string.pad_not_connected), Modifier.align(Alignment.Center).padding(horizontal = Space.xl), c.dim, Glidr.type.body)
+        }
+        Box(Modifier.align(Alignment.TopStart).padding(14.dp).clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(horizontal = 11.dp, vertical = 6.dp)) {
+            Label(stringResource(R.string.speed_chip, settings.sensitivity), color = c.dim, style = Glidr.type.mono)
         }
         if (keepAwakeChip != null) {
-            Box(Modifier.align(Alignment.TopEnd).padding(14.dp).clip(RoundedCornerShape(14.dp)).background(c.s2).padding(horizontal = 11.dp, vertical = 6.dp)) {
+            Box(Modifier.align(Alignment.TopEnd).padding(14.dp).clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(horizontal = 11.dp, vertical = 6.dp)) {
                 Label(keepAwakeChip, color = c.dim, style = Glidr.type.mono)
             }
         }
@@ -245,8 +297,9 @@ private fun ScrollStrip(engine: HidEngine, settings: Settings, onTouch: (Boolean
     val borderColor by animateColorAsState(if (pressed) c.accent else c.line, motionSpec(), label = "stripBorder")
     val shape = RoundedCornerShape(15.dp)
     val density = LocalDensity.current
+    val stripDesc = stringResource(R.string.scroll_strip)
     Box(
-        modifier.width(STRIP_ZONE_DP.dp).semantics { contentDescription = "Scroll strip" }
+        modifier.width(STRIP_ZONE_DP.dp).semantics { contentDescription = stripDesc }
             // Keep Android's edge back gesture off the strip. The system honours at most ~200dp per edge,
             // so the exclusion covers the middle of the strip.
             .systemGestureExclusion { coords ->
@@ -306,7 +359,7 @@ fun MouseButtons(engine: HidEngine, settings: Settings, modifier: Modifier = Mod
     val haptics = remember { Haptics(ctx) }
     val level = settings.haptics
     val order = if (settings.leftHanded) listOf(2, 1, 0) else listOf(0, 1, 2)
-    Row(modifier.fillMaxWidth().height(56.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(modifier.fillMaxWidth().height(56.dp), horizontalArrangement = Arrangement.spacedBy(Space.sm + 2.dp)) {
         for (i in order) {
             val (label, mask, w) = when (i) {
                 0 -> Triple(stringResource(R.string.left), HidReports.BUTTON_LEFT, 3f)
@@ -315,9 +368,14 @@ fun MouseButtons(engine: HidEngine, settings: Settings, modifier: Modifier = Mod
             }
             val desc = if (i == 1) stringResource(R.string.middle_click) else label
             Box(
-                Modifier.weight(w).fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(Glidr.colors.s2)
-                    .border(1.dp, Glidr.colors.line, RoundedCornerShape(20.dp))
-                    .androidxDesc(desc)
+                Modifier.weight(w).fillMaxHeight().clip(RoundedCornerShape(Radius.control)).background(Glidr.colors.s2)
+                    .border(1.dp, Glidr.colors.line, RoundedCornerShape(Radius.control))
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = desc
+                        // Touch-exploration users cannot do the press-and-hold below, so expose a plain click too.
+                        onClick(desc) { engine.click(mask); true }
+                    }
                     .pointerInput(mask, level) {
                         detectTapGestures(onPress = {
                             engine.buttonDown(mask)
@@ -337,10 +395,6 @@ fun MouseButtons(engine: HidEngine, settings: Settings, modifier: Modifier = Mod
         }
     }
 }
-
-private fun Modifier.androidxDesc(d: String) = this.then(
-    Modifier.semantics { contentDescription = d },
-)
 
 @Composable
 fun StatusLine(text: String, modifier: Modifier = Modifier) {
