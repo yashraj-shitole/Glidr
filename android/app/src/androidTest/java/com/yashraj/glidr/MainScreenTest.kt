@@ -1,10 +1,12 @@
 package com.yashraj.glidr
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -13,6 +15,13 @@ import org.junit.runner.RunWith
 class MainScreenTest {
     @get:Rule
     val rule = createAndroidComposeRule<MainActivity>()
+
+    /** A fresh install opens on the welcome card; skip it so the tests see the pad. */
+    @Before
+    fun skipWelcome() {
+        rule.waitForIdle()
+        if (rule.onAllNodesWithText("Skip").fetchSemanticsNodes().isNotEmpty()) rule.onNodeWithText("Skip").performClick()
+    }
 
     @Test
     fun padShowsMouseButtonsAndHint() {

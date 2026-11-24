@@ -20,7 +20,24 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
+import com.yashraj.glidr.ui.theme.Radius
+import com.yashraj.glidr.ui.theme.Space
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -62,7 +79,7 @@ fun PressBox(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     description: String? = null,
-    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(20.dp),
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(Radius.control),
     background: Color = Glidr.colors.s2,
     border: Boolean = true,
     content: @Composable () -> Unit,
@@ -147,62 +164,93 @@ fun RoundIconButton(kind: Ico, description: String, onClick: () -> Unit, active:
     ) { Icon(kind, if (active) c.ink else c.text) }
 }
 
-/** Segmented control with a springy selected pill. Each segment is at least 48dp tall. */
+/** Dim backdrop behind sheets and dialogs. */
+val Scrim = Color(0x99000000)
+
+/** Vertical gap inside a column. */
+@Composable
+fun Gap(h: Dp) = Spacer(Modifier.height(h))
+
+/** Segmented control with a springy selected pill. Each segment is 48dp tall; the 3dp frame keeps radii concentric (14 → 11). */
 @Composable
 fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = Glidr.colors
-    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.s2).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(Space.hair)) {
         options.forEachIndexed { i, label ->
             val on = i == selected
             val bg by animateColorAsState(if (on) c.accent else Color.Transparent, motionSpec(), label = "seg")
             Box(
-                Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(11.dp)).background(bg)
-                    .clickable(role = Role.Tab) { onSelect(i) },
+                Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Radius.chip - 3.dp)).background(bg)
+                    .selectable(selected = on, role = Role.Tab, onClick = { onSelect(i) }),
                 contentAlignment = Alignment.Center,
-            ) { Label(label, color = if (on) c.ink else c.dim) }
+            ) { Label(label, color = if (on) c.ink else c.dim, maxLines = 1) }
         }
     }
 }
 
+/** The switch graphic only. The row around it is the toggleable, so the whole row is the touch target. */
 @Composable
-fun Toggle(on: Boolean, onChange: (Boolean) -> Unit, description: String) {
+fun ToggleSwitch(on: Boolean) {
     val c = Glidr.colors
     val bg by animateColorAsState(if (on) c.accent else c.s3, motionSpec(), label = "sw")
     val x by animateFloatAsState(if (on) 20f else 0f, motionSpec(), label = "swx")
-    Box(
-        Modifier.size(width = 52.dp, height = 48.dp).clickable(role = Role.Switch) { onChange(!on) }
-            .semantics { contentDescription = description },
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(Modifier.size(52.dp, 32.dp).clip(CircleShape).background(bg)) {
-            Box(Modifier.padding(start = (3 + x).dp, top = 3.dp).size(26.dp).clip(CircleShape).background(if (on) c.ink else c.dim))
-        }
+    Box(Modifier.size(width = 52.dp, height = 32.dp).clip(CircleShape).background(bg).clearAndSetSemantics {}) {
+        Box(Modifier.padding(start = (3 + x).dp, top = 3.dp).size(26.dp).clip(CircleShape).background(if (on) c.ink else c.dim))
     }
 }
 
-/** Draggable slider; min touch height 48dp. */
+/**
+ * Draggable slider, 48dp tall. TalkBack can adjust it (range info + set progress) and the arrow keys step it.
+ * [tickEvery] draws a detent mark every that many units.
+ */
 @Composable
-fun Slider(value: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit, description: String, step: Float = 0.1f) {
+fun Slider(
+    value: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit, description: String,
+    step: Float = 0.1f, tickEvery: Float = 0f,
+) {
     val c = Glidr.colors
-    val frac = ((value - range.start) / (range.endInclusive - range.start)).coerceIn(0f, 1f)
-    fun at(x: Float, w: Float): Float {
-        val f = (x / w).coerceIn(0f, 1f)
-        val raw = range.start + f * (range.endInclusive - range.start)
-        return (Math.round(raw / step) * step).coerceIn(range.start, range.endInclusive)
-    }
+    val span = range.endInclusive - range.start
+    val frac = ((value - range.start) / span).coerceIn(0f, 1f)
+    val change by rememberUpdatedState(onChange)
+    fun snap(raw: Float) = (Math.round(raw / step) * step).coerceIn(range.start, range.endInclusive)
+    fun at(x: Float, w: Float) = snap(range.start + (x / w).coerceIn(0f, 1f) * span)
     Box(
         Modifier.fillMaxWidth().height(48.dp)
-            .semantics { contentDescription = "$description %.1f".format(value) }
-            .pointerInput(range) { detectTapGestures { onChange(at(it.x, size.width.toFloat())) } }
-            .pointerInput(range) { detectDragGestures { ch, _ -> ch.consume(); onChange(at(ch.position.x, size.width.toFloat())) } },
+            .semantics {
+                contentDescription = description
+                stateDescription = "%.1f".format(value)
+                progressBarRangeInfo = ProgressBarRangeInfo(value, range)
+                setProgress { target -> change(snap(target)); true }
+            }
+            .focusable()
+            .onKeyEvent { e ->
+                if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (e.key) {
+                    Key.DirectionLeft, Key.DirectionDown -> { change(snap(value - step)); true }
+                    Key.DirectionRight, Key.DirectionUp -> { change(snap(value + step)); true }
+                    else -> false
+                }
+            }
+            .pointerInput(range) { detectTapGestures { change(at(it.x, size.width.toFloat())) } }
+            .pointerInput(range) { detectDragGestures { ch, _ -> ch.consume(); change(at(ch.position.x, size.width.toFloat())) } },
         contentAlignment = Alignment.CenterStart,
     ) {
         Box(Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(c.s3))
         Box(Modifier.fillMaxWidth(frac).height(8.dp).clip(CircleShape).background(c.accent))
-        Box(Modifier.fillMaxWidth().fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
-            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
-                Box(Modifier.padding(start = ((maxWidth - 28.dp) * frac)).size(28.dp).clip(CircleShape).background(c.text))
+        if (tickEvery > 0f) {
+            // Same inset as the thumb centre (14dp = half the thumb), so marks line up with where the thumb stops.
+            Canvas(Modifier.fillMaxWidth().height(8.dp)) {
+                val inset = 14.dp.toPx()
+                var t = range.start + tickEvery
+                while (t < range.endInclusive - tickEvery / 2) {
+                    val x = inset + (size.width - 2 * inset) * ((t - range.start) / span)
+                    drawCircle(c.bg.copy(alpha = 0.55f), 1.5.dp.toPx(), Offset(x, size.height / 2))
+                    t += tickEvery
+                }
             }
+        }
+        BoxWithConstraints(Modifier.fillMaxWidth().fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+            Box(Modifier.padding(start = (maxWidth - 28.dp) * frac).size(28.dp).clip(CircleShape).background(c.text))
         }
     }
 }

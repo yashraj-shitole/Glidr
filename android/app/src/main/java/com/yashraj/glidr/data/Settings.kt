@@ -34,6 +34,8 @@ data class Settings(
     val autoReconnect: Boolean = true,
     val nudgeRoam: Boolean = true,
     val lastHost: String? = null,
+    /** The first-run welcome card has been dismissed. */
+    val onboarded: Boolean = false,
 ) {
     companion object {
         val NUDGE_SECONDS = intArrayOf(15, 30, 60, 120)
@@ -63,6 +65,7 @@ class SettingsRepository(private val context: Context) {
         val autoReconnect = booleanPreferencesKey("auto_reconnect")
         val nudgeRoam = booleanPreferencesKey("nudge_roam")
         val host = stringPreferencesKey("host")
+        val onboarded = booleanPreferencesKey("onboarded")
     }
 
     val flow: Flow<Settings> = context.store.data.map { map(it) }
@@ -90,6 +93,7 @@ class SettingsRepository(private val context: Context) {
             autoReconnect = p[K.autoReconnect] ?: d.autoReconnect,
             nudgeRoam = p[K.nudgeRoam] ?: d.nudgeRoam,
             lastHost = p[K.host],
+            onboarded = p[K.onboarded] ?: d.onboarded,
         )
     }
 
@@ -115,6 +119,7 @@ class SettingsRepository(private val context: Context) {
             p[K.hapticKeys] = s.hapticKeys
             p[K.autoReconnect] = s.autoReconnect
             p[K.nudgeRoam] = s.nudgeRoam
+            p[K.onboarded] = s.onboarded
             val h = s.lastHost
             if (h == null) p.remove(K.host) else p[K.host] = h
         }

@@ -1,8 +1,12 @@
 package com.yashraj.glidr.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,181 +14,234 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.TextUnitType
-import com.yashraj.glidr.companion.COMPANION_DOWNLOAD_URL
-import com.yashraj.glidr.companion.CompanionState
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.yashraj.glidr.R
+import com.yashraj.glidr.companion.COMPANION_DOWNLOAD_URL
+import com.yashraj.glidr.companion.CompanionState
 import com.yashraj.glidr.data.Settings
 import com.yashraj.glidr.hid.KeyboardLayout
+import com.yashraj.glidr.input.MotionPipeline
 import com.yashraj.glidr.ui.theme.ACCENT_COLORS
-import com.yashraj.glidr.ui.theme.ACCENT_NAMES
 import com.yashraj.glidr.ui.theme.Glidr
+import com.yashraj.glidr.ui.theme.Radius
+import com.yashraj.glidr.ui.theme.Space
 import com.yashraj.glidr.update.Release
 import com.yashraj.glidr.update.UpdateState
+
+private val ACCENT_NAME_RES = listOf(R.string.accent_volt, R.string.accent_ember, R.string.accent_sky, R.string.accent_rose)
 
 @Composable
 fun SettingsScreen(
     s: Settings, companion: CompanionState, pcConnected: Boolean, onInstallOnPc: (onDone: () -> Unit) -> Boolean, update: ((Settings) -> Settings) -> Unit, onForget: () -> Unit, onBack: () -> Unit,
     appVersion: String, updateState: UpdateState, onCheckUpdate: () -> Unit, onOpenUpdate: (String) -> Unit,
+    onReset: () -> Unit, onShowWelcome: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val c = Glidr.colors
     val ctx = LocalContext.current
     val haptics = remember { Haptics(ctx) }
     var showInstall by rememberSaveable { mutableStateOf(false) }
-    BackHandler(enabled = showInstall) { showInstall = false }
+    var confirm by rememberSaveable { mutableStateOf<Confirm?>(null) }
+    BackHandler(enabled = showInstall || confirm != null) { if (confirm != null) confirm = null else showInstall = false }
+    // A detent tick whenever a slider moves to a new step.
+    fun tick() = haptics.play(Haptic.Tick, s.haptics)
     Box(modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            RoundIconButton(Ico.Back, stringResource(R.string.back), onBack)
-            Label(stringResource(R.string.settings), color = c.text, style = Glidr.type.title.copy(fontSize = androidx.compose.ui.unit.TextUnit(24f, androidx.compose.ui.unit.TextUnitType.Sp)))
-        }
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 32.dp)) {
-            (updateState as? UpdateState.Available)?.let { UpdateBanner(it.release, onOpenUpdate) }
-            Section(stringResource(R.string.pointer)) {
-                SliderRow(stringResource(R.string.sensitivity), "%.1f×".format(s.sensitivity)) {
-                    Slider(s.sensitivity, 0.5f..3f, { v -> update { it.copy(sensitivity = v) } }, stringResource(R.string.sensitivity))
-                }
-                Pad {
-                    Label(stringResource(R.string.acceleration), color = c.text, style = Glidr.type.body)
-                    Box(Modifier.height(10.dp))
-                    Segmented(listOf("Off", "Low", "Med", "High"), s.acceleration, { v -> update { it.copy(acceleration = v) } })
-                    AccelCurve(s.sensitivity, s.acceleration)
-                }
-                SliderRow(stringResource(R.string.scroll_speed), "%.1f×".format(s.scrollSpeed)) {
-                    Slider(s.scrollSpeed, 0.5f..3f, { v -> update { it.copy(scrollSpeed = v) } }, stringResource(R.string.scroll_speed))
-                }
-                SwitchRow(stringResource(R.string.natural_scroll), stringResource(R.string.natural_scroll_sub), s.naturalScroll) { v -> update { it.copy(naturalScroll = v) } }
-                SwitchRow(stringResource(R.string.tap_to_click), stringResource(R.string.tap_to_click_sub), s.tapToClick) { v -> update { it.copy(tapToClick = v) } }
-                SwitchRow(stringResource(R.string.left_handed), stringResource(R.string.left_handed_sub), s.leftHanded) { v -> update { it.copy(leftHanded = v) } }
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.padding(horizontal = Space.lg, vertical = Space.sm), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md)) {
+                RoundIconButton(Ico.Back, stringResource(R.string.back), onBack)
+                Label(stringResource(R.string.settings), color = c.text, style = Glidr.type.title)
             }
-            Section(stringResource(R.string.keyboard)) {
-                Pad {
-                    Label(stringResource(R.string.layout), color = c.text, style = Glidr.type.body)
-                    Label(stringResource(R.string.layout_sub), color = c.dim, style = Glidr.type.small)
-                    Box(Modifier.height(10.dp))
-                    val ids = KeyboardLayout.all.map { it.id }
-                    Segmented(KeyboardLayout.all.map { it.label }, ids.indexOf(s.layoutId).coerceAtLeast(0), { i -> update { it.copy(layoutId = ids[i]) } })
-                }
-            }
-            Section(stringResource(R.string.keep_awake)) {
-                SwitchRow(stringResource(R.string.keep_awake_feature), stringResource(R.string.keep_awake_feature_sub), s.keepAwakeEnabled) { v -> update { it.copy(keepAwakeEnabled = v) } }
-                if (s.keepAwakeEnabled) {
-                    SwitchRow(stringResource(R.string.pause_touching), stringResource(R.string.pause_touching_sub), s.pauseWhileTouching) { v -> update { it.copy(pauseWhileTouching = v) } }
-                    Pad {
-                        Label(stringResource(R.string.nudge_style), color = c.text, style = Glidr.type.body)
-                        Label(stringResource(R.string.nudge_style_sub), color = c.dim, style = Glidr.type.small)
-                        Box(Modifier.height(10.dp))
-                        Segmented(listOf(stringResource(R.string.nudge_subtle), stringResource(R.string.nudge_roam)), if (s.nudgeRoam) 1 else 0, { v -> update { it.copy(nudgeRoam = v == 1) } })
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Space.lg).padding(bottom = 32.dp)) {
+                (updateState as? UpdateState.Available)?.let { UpdateBanner(it.release, onOpenUpdate) }
+                Section(stringResource(R.string.pointer)) {
+                    SliderRow(stringResource(R.string.sensitivity), "%.1f×".format(s.sensitivity)) {
+                        Slider(s.sensitivity, 0.5f..3f, { v -> if (v != s.sensitivity) tick(); update { it.copy(sensitivity = v) } }, stringResource(R.string.sensitivity), tickEvery = 0.5f)
                     }
                     Pad {
-                        Label(stringResource(R.string.nudge_every), color = c.text, style = Glidr.type.body)
-                        Box(Modifier.height(10.dp))
-                        Segmented(listOf("15 s", "30 s", "1 min", "2 min"), s.nudgeEvery, { v -> update { it.copy(nudgeEvery = v) } })
+                        Label(stringResource(R.string.acceleration), color = c.text, style = Glidr.type.body)
+                        Gap(10.dp)
+                        Segmented(
+                            listOf(stringResource(R.string.off), stringResource(R.string.accel_low), stringResource(R.string.accel_med), stringResource(R.string.accel_high)),
+                            s.acceleration, { v -> update { it.copy(acceleration = v) } },
+                        )
+                        AccelCurve(s.sensitivity, s.acceleration)
+                        Gap(Space.md)
+                        TryPad(s.sensitivity, s.acceleration)
                     }
+                    SliderRow(stringResource(R.string.scroll_speed), "%.1f×".format(s.scrollSpeed)) {
+                        Slider(s.scrollSpeed, 0.5f..3f, { v -> if (v != s.scrollSpeed) tick(); update { it.copy(scrollSpeed = v) } }, stringResource(R.string.scroll_speed), tickEvery = 0.5f)
+                    }
+                    SwitchRow(stringResource(R.string.natural_scroll), stringResource(R.string.natural_scroll_sub), s.naturalScroll) { v -> update { it.copy(naturalScroll = v) } }
+                    SwitchRow(stringResource(R.string.tap_to_click), stringResource(R.string.tap_to_click_sub), s.tapToClick) { v -> update { it.copy(tapToClick = v) } }
+                    SwitchRow(stringResource(R.string.left_handed), stringResource(R.string.left_handed_sub), s.leftHanded) { v -> update { it.copy(leftHanded = v) } }
+                }
+                Section(stringResource(R.string.keyboard)) {
                     Pad {
-                        Label(stringResource(R.string.auto_stop), color = c.text, style = Glidr.type.body)
-                        Box(Modifier.height(10.dp))
-                        Segmented(listOf(stringResource(R.string.never), "30 min", "1 h", "2 h"), s.autoStop, { v -> update { it.copy(autoStop = v) } })
+                        Label(stringResource(R.string.layout), color = c.text, style = Glidr.type.body)
+                        Label(stringResource(R.string.layout_sub), color = c.dim, style = Glidr.type.small)
+                        Gap(10.dp)
+                        val ids = KeyboardLayout.all.map { it.id }
+                        Segmented(KeyboardLayout.all.map { it.label }, ids.indexOf(s.layoutId).coerceAtLeast(0), { i -> update { it.copy(layoutId = ids[i]) } })
                     }
                 }
-            }
-            Section(stringResource(R.string.haptics)) {
-                Pad {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Label(stringResource(R.string.intensity), color = c.text, style = Glidr.type.body)
-                        PressBox({ haptics.play(Haptic.Confirm, s.haptics) }, Modifier.height(48.dp), stringResource(R.string.feel_it), RoundedCornerShape(24.dp)) {
-                            Label(stringResource(R.string.feel_it), Modifier.padding(horizontal = 18.dp))
+                Section(stringResource(R.string.keep_awake)) {
+                    SwitchRow(stringResource(R.string.keep_awake_feature), stringResource(R.string.keep_awake_feature_sub), s.keepAwakeEnabled) { v -> update { it.copy(keepAwakeEnabled = v) } }
+                    if (s.keepAwakeEnabled) {
+                        SwitchRow(stringResource(R.string.pause_touching), stringResource(R.string.pause_touching_sub), s.pauseWhileTouching) { v -> update { it.copy(pauseWhileTouching = v) } }
+                        Pad {
+                            Label(stringResource(R.string.nudge_style), color = c.text, style = Glidr.type.body)
+                            Label(stringResource(R.string.nudge_style_sub), color = c.dim, style = Glidr.type.small)
+                            Gap(10.dp)
+                            Segmented(listOf(stringResource(R.string.nudge_subtle), stringResource(R.string.nudge_roam)), if (s.nudgeRoam) 1 else 0, { v -> update { it.copy(nudgeRoam = v == 1) } })
                         }
-                    }
-                    Box(Modifier.height(10.dp))
-                    Segmented(listOf(stringResource(R.string.off), "Light", "Medium", "Strong"), s.haptics, { v -> update { it.copy(haptics = v) }; haptics.play(Haptic.Click, v) })
-                }
-                SwitchRow(stringResource(R.string.hap_scroll), stringResource(R.string.hap_scroll_sub), s.hapticScroll) { v -> update { it.copy(hapticScroll = v) } }
-                SwitchRow(stringResource(R.string.hap_keys), stringResource(R.string.hap_keys_sub), s.hapticKeys) { v -> update { it.copy(hapticKeys = v) } }
-            }
-            Section(stringResource(R.string.appearance)) {
-                Pad {
-                    Label(stringResource(R.string.theme), color = c.text, style = Glidr.type.body)
-                    Box(Modifier.height(10.dp))
-                    Segmented(listOf("Midnight", "Paper"), if (s.lightTheme) 1 else 0, { v -> update { it.copy(lightTheme = v == 1) } })
-                }
-                Pad {
-                    Label(stringResource(R.string.accent), color = c.text, style = Glidr.type.body)
-                    Box(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        ACCENT_COLORS.forEachIndexed { i, col ->
-                            Box(
-                                Modifier.size(48.dp).clip(CircleShape).background(col)
-                                    .then(if (i == s.accent) Modifier.border(3.dp, c.text, CircleShape) else Modifier)
-                                    .clickable { update { it.copy(accent = i) } }
-                                    .androidSem(ACCENT_NAMES[i]),
+                        Pad {
+                            Label(stringResource(R.string.nudge_every), color = c.text, style = Glidr.type.body)
+                            Gap(10.dp)
+                            Segmented(
+                                listOf(stringResource(R.string.every_15s), stringResource(R.string.every_30s), stringResource(R.string.every_1m), stringResource(R.string.every_2m)),
+                                s.nudgeEvery, { v -> update { it.copy(nudgeEvery = v) } },
+                            )
+                        }
+                        Pad {
+                            Label(stringResource(R.string.auto_stop), color = c.text, style = Glidr.type.body)
+                            Gap(10.dp)
+                            Segmented(
+                                listOf(stringResource(R.string.never), stringResource(R.string.stop_30m), stringResource(R.string.stop_1h), stringResource(R.string.stop_2h)),
+                                s.autoStop, { v -> update { it.copy(autoStop = v) } },
                             )
                         }
                     }
                 }
-                SwitchRow(stringResource(R.string.reduce_motion), stringResource(R.string.reduce_motion_sub), s.reduceMotion) { v -> update { it.copy(reduceMotion = v) } }
-            }
-            Section(stringResource(R.string.connection)) {
-                SwitchRow(stringResource(R.string.auto_reconnect), stringResource(R.string.auto_reconnect_sub), s.autoReconnect) { v -> update { it.copy(autoReconnect = v) } }
-                Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                        Label(stringResource(R.string.forget_pc), color = c.text, style = Glidr.type.body)
-                        Label(stringResource(R.string.forget_pc_sub), color = c.dim, style = Glidr.type.small)
-                    }
-                    PressBox(onForget, Modifier.height(48.dp), stringResource(R.string.forget_pc), RoundedCornerShape(24.dp)) {
-                        Label(stringResource(R.string.forget), Modifier.padding(horizontal = 18.dp))
-                    }
-                }
-            }
-            Section(stringResource(R.string.sync_media)) {
-                Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                        Label(stringResource(R.string.install_pc_app), color = c.text, style = Glidr.type.body)
-                        Label(
-                            stringResource(if (companion == CompanionState.Connected) R.string.pc_app_connected else R.string.install_pc_app_sub),
-                            color = if (companion == CompanionState.Connected) c.accentText else c.dim, style = Glidr.type.small,
+                Section(stringResource(R.string.haptics)) {
+                    Pad {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Label(stringResource(R.string.intensity), color = c.text, style = Glidr.type.body)
+                            PressBox({ haptics.play(Haptic.Confirm, s.haptics) }, Modifier.height(48.dp), stringResource(R.string.feel_it), RoundedCornerShape(Radius.card)) {
+                                Label(stringResource(R.string.feel_it), Modifier.padding(horizontal = 18.dp))
+                            }
+                        }
+                        Gap(10.dp)
+                        Segmented(
+                            listOf(stringResource(R.string.off), stringResource(R.string.hap_light), stringResource(R.string.hap_medium), stringResource(R.string.hap_strong)),
+                            s.haptics, { v -> update { it.copy(haptics = v) }; haptics.play(Haptic.Click, v) },
                         )
                     }
-                    PressBox({ showInstall = true }, Modifier.height(48.dp), stringResource(R.string.install_pc_app), RoundedCornerShape(24.dp)) {
-                        Label(stringResource(R.string.install), Modifier.padding(horizontal = 18.dp))
-                    }
+                    SwitchRow(stringResource(R.string.hap_scroll), stringResource(R.string.hap_scroll_sub), s.hapticScroll) { v -> update { it.copy(hapticScroll = v) } }
+                    SwitchRow(stringResource(R.string.hap_keys), stringResource(R.string.hap_keys_sub), s.hapticKeys) { v -> update { it.copy(hapticKeys = v) } }
                 }
-            }
-            Section(stringResource(R.string.updates)) {
-                UpdateRow(appVersion, updateState, onCheckUpdate)
-            }
-            Section(stringResource(R.string.about)) {
-                Pad {
-                    Label(stringResource(R.string.privacy_note), color = c.dim, style = Glidr.type.small)
+                Section(stringResource(R.string.appearance)) {
+                    Pad {
+                        Label(stringResource(R.string.theme), color = c.text, style = Glidr.type.body)
+                        Gap(10.dp)
+                        Segmented(listOf(stringResource(R.string.theme_midnight), stringResource(R.string.theme_paper)), if (s.lightTheme) 1 else 0, { v -> update { it.copy(lightTheme = v == 1) } })
+                    }
+                    Pad {
+                        Label(stringResource(R.string.accent), color = c.text, style = Glidr.type.body)
+                        Gap(10.dp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(Space.lg)) {
+                            ACCENT_COLORS.forEachIndexed { i, col ->
+                                val name = stringResource(ACCENT_NAME_RES[i])
+                                val on = i == s.accent
+                                Box(
+                                    Modifier.size(48.dp).clip(CircleShape).background(col)
+                                        .then(if (on) Modifier.border(3.dp, c.text, CircleShape) else Modifier)
+                                        .selectable(selected = on, role = Role.RadioButton, onClick = { update { it.copy(accent = i) } })
+                                        .semantics { contentDescription = name },
+                                )
+                            }
+                        }
+                    }
+                    SwitchRow(stringResource(R.string.reduce_motion), stringResource(R.string.reduce_motion_sub), s.reduceMotion) { v -> update { it.copy(reduceMotion = v) } }
+                }
+                Section(stringResource(R.string.connection)) {
+                    SwitchRow(stringResource(R.string.auto_reconnect), stringResource(R.string.auto_reconnect_sub), s.autoReconnect) { v -> update { it.copy(autoReconnect = v) } }
+                    ActionRow(stringResource(R.string.forget_pc), stringResource(R.string.forget_pc_sub), stringResource(R.string.forget)) { confirm = Confirm.Forget }
+                }
+                Section(stringResource(R.string.sync_media)) {
+                    ActionRow(
+                        stringResource(R.string.install_pc_app),
+                        stringResource(if (companion == CompanionState.Connected) R.string.pc_app_connected else R.string.install_pc_app_sub),
+                        stringResource(R.string.install), subAccent = companion == CompanionState.Connected,
+                    ) { showInstall = true }
+                }
+                Section(stringResource(R.string.updates)) {
+                    UpdateRow(appVersion, updateState, onCheckUpdate)
+                }
+                Section(stringResource(R.string.how_to_use)) {
+                    Pad { GestureList() }
+                    ActionRow(stringResource(R.string.replay_welcome), stringResource(R.string.replay_welcome_sub), stringResource(R.string.show)) { onShowWelcome() }
+                }
+                Section(stringResource(R.string.about)) {
+                    ActionRow(stringResource(R.string.reset_settings), stringResource(R.string.reset_settings_sub), stringResource(R.string.reset)) { confirm = Confirm.Reset }
+                    Pad {
+                        Label(stringResource(R.string.privacy_note), color = c.dim, style = Glidr.type.small)
+                    }
                 }
             }
         }
+        if (showInstall) InstallPcAppDialog(pcConnected, onInstallOnPc) { showInstall = false }
+        when (confirm) {
+            Confirm.Forget -> ConfirmDialog(
+                stringResource(R.string.forget_pc), stringResource(R.string.forget_confirm), stringResource(R.string.forget),
+                onConfirm = { onForget(); confirm = null }, onClose = { confirm = null },
+            )
+            Confirm.Reset -> ConfirmDialog(
+                stringResource(R.string.reset_settings), stringResource(R.string.reset_confirm), stringResource(R.string.reset),
+                onConfirm = { onReset(); confirm = null }, onClose = { confirm = null },
+            )
+            null -> Unit
+        }
     }
-    if (showInstall) InstallPcAppDialog(pcConnected, onInstallOnPc) { showInstall = false }
+}
+
+private enum class Confirm { Forget, Reset }
+
+/** Centered confirmation card on a scrim. Cancel is the quiet choice, the action carries the accent. */
+@Composable
+private fun ConfirmDialog(title: String, body: String, action: String, onConfirm: () -> Unit, onClose: () -> Unit) {
+    val c = Glidr.colors
+    Box(Modifier.fillMaxSize().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.padding(Space.xl).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.sheet))
+                .clickable(enabled = false) {}.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(Space.md),
+        ) {
+            Label(title, color = c.text, style = Glidr.type.heading)
+            Label(body, color = c.dim, style = Glidr.type.body)
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                PressBox(onClose, Modifier.weight(1f).height(52.dp)) { Label(stringResource(R.string.cancel)) }
+                PressBox(onConfirm, Modifier.weight(1f).height(52.dp), null, background = c.accent, border = false) { Label(action, color = c.ink) }
+            }
+        }
     }
 }
 
@@ -194,23 +251,16 @@ private fun InstallPcAppDialog(pcConnected: Boolean, onInstallOnPc: (onDone: () 
     val hosted = COMPANION_DOWNLOAD_URL.isNotBlank()
     var phase by rememberSaveable { mutableStateOf(InstallPhase.Idle) }
     val steps = listOf(R.string.install_step_1, R.string.install_step_2, R.string.install_step_3, R.string.install_step_4)
-    Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.padding(24.dp).fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(28.dp))
-                .clickable(enabled = false) {}.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            Modifier.padding(Space.xl).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.sheet))
+                .clickable(enabled = false) {}.verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {
-            Label(stringResource(R.string.install_pc_app), color = c.text, style = Glidr.type.title.copy(fontSize = TextUnit(22f, TextUnitType.Sp)))
+            Label(stringResource(R.string.install_pc_app), color = c.text, style = Glidr.type.heading)
             if (hosted) {
                 Label(stringResource(R.string.auto_install_intro), color = c.dim, style = Glidr.type.small)
-                steps.forEachIndexed { i, res ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-                        Box(Modifier.size(24.dp).clip(CircleShape).background(c.accent), contentAlignment = Alignment.Center) {
-                            Label("${i + 1}", color = c.ink, style = Glidr.type.small)
-                        }
-                        Label(stringResource(res), color = c.text, style = Glidr.type.body, modifier = Modifier.weight(1f))
-                    }
-                }
+                steps.forEachIndexed { i, res -> NumberedStep(i + 1, stringResource(res), done = false, active = true) }
                 when (phase) {
                     InstallPhase.Typing -> Label(stringResource(R.string.auto_install_typing), color = c.accentText, style = Glidr.type.body)
                     InstallPhase.Sent -> Label(stringResource(R.string.auto_install_sent), color = c.accentText, style = Glidr.type.body)
@@ -238,15 +288,15 @@ private enum class InstallPhase { Idle, Typing, Sent, Failed }
 private fun UpdateBanner(release: Release, onOpen: (String) -> Unit) {
     val c = Glidr.colors
     Row(
-        Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(24.dp)).background(c.s1)
-            .border(1.dp, c.accent, RoundedCornerShape(24.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().padding(top = Space.sm).clip(RoundedCornerShape(Radius.card)).background(c.s1)
+            .border(1.dp, c.accent, RoundedCornerShape(Radius.card)).padding(Space.lg),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+        Column(Modifier.weight(1f).padding(end = Space.md)) {
             Label(stringResource(R.string.update_available, release.version), color = c.text, style = Glidr.type.body)
             Label(stringResource(R.string.update_available_sub), color = c.dim, style = Glidr.type.small)
         }
-        PressBox({ onOpen(release.downloadUrl) }, Modifier.height(48.dp), stringResource(R.string.download), RoundedCornerShape(24.dp), background = c.accent, border = false) {
+        PressBox({ onOpen(release.downloadUrl) }, Modifier.height(48.dp), stringResource(R.string.download), RoundedCornerShape(Radius.card), background = c.accent, border = false) {
             Label(stringResource(R.string.download), Modifier.padding(horizontal = 18.dp), c.ink)
         }
     }
@@ -254,7 +304,6 @@ private fun UpdateBanner(release: Release, onOpen: (String) -> Unit) {
 
 @Composable
 private fun UpdateRow(version: String, state: UpdateState, onCheck: () -> Unit) {
-    val c = Glidr.colors
     val status = when (state) {
         UpdateState.Checking -> stringResource(R.string.update_checking)
         UpdateState.UpToDate -> stringResource(R.string.update_latest)
@@ -264,24 +313,18 @@ private fun UpdateRow(version: String, state: UpdateState, onCheck: () -> Unit) 
         is UpdateState.Failed -> stringResource(R.string.update_failed)
         UpdateState.Idle -> ""
     }
-    Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Label(stringResource(R.string.version_label, version), color = c.text, style = Glidr.type.body)
-            if (status.isNotEmpty()) Label(status, color = if (state is UpdateState.Available) c.accentText else c.dim, style = Glidr.type.small)
-        }
-        if (state != UpdateState.ViaStore) {
-            PressBox({ if (state != UpdateState.Checking) onCheck() }, Modifier.height(48.dp), stringResource(R.string.check_updates), RoundedCornerShape(24.dp)) {
-                Label(stringResource(R.string.check_updates), Modifier.padding(horizontal = 18.dp))
-            }
-        }
-    }
+    ActionRow(
+        stringResource(R.string.version_label, version), status, stringResource(R.string.check_updates),
+        subAccent = state is UpdateState.Available, showAction = state != UpdateState.ViaStore,
+        actionDescription = stringResource(R.string.check_updates),
+    ) { if (state != UpdateState.Checking) onCheck() }
 }
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     val c = Glidr.colors
-    Label(title.uppercase(), Modifier.padding(start = 4.dp, top = 24.dp, bottom = 10.dp), c.dim, Glidr.type.small)
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(24.dp)).padding(horizontal = 16.dp)) { content() }
+    Label(title.uppercase(), Modifier.padding(start = 4.dp, top = Space.xl, bottom = 10.dp), c.dim, Glidr.type.small)
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.card)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.card)).padding(horizontal = Space.lg)) { content() }
 }
 
 @Composable
@@ -301,32 +344,55 @@ private fun SliderRow(title: String, value: String, slider: @Composable () -> Un
     }
 }
 
+/**
+ * Title and hint on the left, a 48dp pill button on the right. At least 64dp tall, and it grows when the system
+ * font is larger so two-line hints are never clipped.
+ */
 @Composable
-private fun SwitchRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
+private fun ActionRow(
+    title: String, sub: String, action: String, subAccent: Boolean = false, showAction: Boolean = true,
+    actionDescription: String = title, onClick: () -> Unit,
+) {
     val c = Glidr.colors
-    Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = Space.md)) {
             Label(title, color = c.text, style = Glidr.type.body)
-            Label(sub, color = c.dim, style = Glidr.type.small)
+            if (sub.isNotEmpty()) Label(sub, color = if (subAccent) c.accentText else c.dim, style = Glidr.type.small)
         }
-        Toggle(on, onChange, title)
+        if (showAction) {
+            PressBox(onClick, Modifier.height(48.dp), actionDescription, RoundedCornerShape(Radius.card)) {
+                Label(action, Modifier.padding(horizontal = 18.dp))
+            }
+        }
     }
 }
 
-private fun Modifier.androidSem(d: String) = this.then(
-    Modifier.semantics { contentDescription = d },
-)
+/** The whole row is the switch, so the touch target is the full width, not just the 52dp graphic. */
+@Composable
+private fun SwitchRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    val c = Glidr.colors
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).toggleable(value = on, role = Role.Switch, onValueChange = onChange).padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f).padding(end = Space.md)) {
+            Label(title, color = c.text, style = Glidr.type.body)
+            Label(sub, color = c.dim, style = Glidr.type.small)
+        }
+        ToggleSwitch(on)
+    }
+}
 
 /** Preview of the speed-in, speed-out curve for the current sensitivity and acceleration. */
 @Composable
 private fun AccelCurve(sensitivity: Float, accel: Int) {
     val c = Glidr.colors
     val k = floatArrayOf(0f, 0.6f, 1.2f, 2.0f)[accel.coerceIn(0, 3)]
-    Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(64.dp)) {
+    Box(Modifier.fillMaxWidth().padding(top = Space.md)) {
+        Canvas(Modifier.fillMaxWidth().height(64.dp)) {
             val w = size.width
             val h = size.height
-            val path = androidx.compose.ui.graphics.Path()
+            val path = Path()
             for (i in 0..24) {
                 val x = i / 24f
                 val y = (sensitivity * x * (1 + k * x) / 6f).coerceIn(0f, 1f)
@@ -334,12 +400,57 @@ private fun AccelCurve(sensitivity: Float, accel: Int) {
                 val py = h - 6f - y * (h - 12f)
                 if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
             }
-            drawLine(c.s3, androidx.compose.ui.geometry.Offset(6f, h - 6f), androidx.compose.ui.geometry.Offset(w - 6f, 6f), 3f)
-            drawPath(path, c.accentText, style = androidx.compose.ui.graphics.drawscope.Stroke(6f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+            drawLine(c.s3, Offset(6f, h - 6f), Offset(w - 6f, 6f), 3f)
+            drawPath(path, c.accentText, style = Stroke(6f, cap = StrokeCap.Round))
         }
     }
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Label(stringResource(R.string.curve_slow).uppercase(), color = c.dim, style = Glidr.type.small)
         Label(stringResource(R.string.curve_fast).uppercase(), color = c.dim, style = Glidr.type.small)
+    }
+}
+
+/**
+ * A small practice area that runs touches through the same [MotionPipeline] as the real pad, so the sliders can be
+ * judged without a PC. The dot moves at half scale; nothing is sent over Bluetooth.
+ */
+@Composable
+private fun TryPad(sensitivity: Float, accel: Int) {
+    val c = Glidr.colors
+    val pipe = remember { MotionPipeline() }
+    pipe.sensitivity = sensitivity
+    pipe.acceleration = accel
+    var dot by remember { mutableStateOf<Offset?>(null) }
+    var active by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(Radius.control)
+    Box(
+        Modifier.fillMaxWidth().height(96.dp).clip(shape).background(c.s2).border(1.dp, if (active) c.accent else c.line, shape)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    pipe.reset()
+                    active = true
+                    var last = down.uptimeMillis
+                    var p = dot ?: Offset(size.width / 2f, size.height / 2f)
+                    dot = p
+                    do {
+                        val ev = awaitPointerEvent()
+                        val ch = ev.changes.first()
+                        val d = ch.positionChange()
+                        pipe.process(d.x, d.y, (ch.uptimeMillis - last).toFloat())
+                        last = ch.uptimeMillis
+                        p = Offset((p.x + pipe.outX * 0.5f).coerceIn(0f, size.width.toFloat()), (p.y + pipe.outY * 0.5f).coerceIn(0f, size.height.toFloat()))
+                        dot = p
+                        ch.consume()
+                    } while (ev.changes.any { it.pressed })
+                    active = false
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Label(stringResource(R.string.try_pad), color = c.dim, style = Glidr.type.small)
+        Canvas(Modifier.fillMaxSize()) {
+            dot?.let { drawCircle(c.accent, 7.dp.toPx(), it) }
+        }
     }
 }

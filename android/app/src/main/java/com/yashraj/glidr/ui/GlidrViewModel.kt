@@ -36,6 +36,10 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
     val settings: StateFlow<Settings> = app.settings.flow
         .stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
 
+    /** True once the saved settings have been read, so first-run UI is not shown to returning users while they load. */
+    private val _loaded = MutableStateFlow(false)
+    val settingsLoaded: StateFlow<Boolean> = _loaded
+
     // ------------------------------------------------------------------ updates
 
     val appVersion: String = appVersion(app)
@@ -71,6 +75,7 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
                 engine.scrollSpeed = s.scrollSpeed
                 engine.naturalScroll = s.naturalScroll
                 engine.layout = KeyboardLayout.byId(s.layoutId)
+                _loaded.value = true
             }
         }
     }
@@ -78,6 +83,9 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
     fun update(block: (Settings) -> Settings) {
         viewModelScope.launch { app.settings.update(block) }
     }
+
+    /** Back to defaults. The remembered PC and the welcome flag are kept. */
+    fun resetSettings() = update { Settings(lastHost = it.lastHost, onboarded = it.onboarded) }
 
     fun startTransport() {
         app.transport.start()
