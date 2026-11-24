@@ -9,9 +9,9 @@ It uses the Bluetooth HID Device profile, so the PC needs no software for basic 
 | PC companion (tray, optional) | `windows/` | .NET 8 tray app, Windows media session, Bluetooth RFCOMM |
 | Docs and design | `docs/` | [Play Store checklist](docs/play-store-checklist.md), store icons, [design mockup](docs/design/) |
 
-## Download (v2.0.0)
-- **Phone app:** [Glidr-2.0.0.apk](https://github.com/yashraj-shitole/Glidr/releases/download/v2.0.0/Glidr-2.0.0.apk). Android 10 or newer; allow installing from your browser or file manager.
-- **PC app (optional):** [GlidrCompanion.exe](https://github.com/yashraj-shitole/Glidr/releases/download/v2.0.0/GlidrCompanion.exe). Shows what is playing on the PC in Glidr's Media screen. Needs the .NET 8 Desktop Runtime. You can also install it from the phone: Settings, Sync media, Install PC app.
+## Download (v2.1.0)
+- **Phone app:** [Glidr-2.1.0.apk](https://github.com/yashraj-shitole/Glidr/releases/download/v2.1.0/Glidr-2.1.0.apk). Android 10 or newer; allow installing from your browser or file manager.
+- **PC app (optional):** [GlidrCompanion.exe](https://github.com/yashraj-shitole/Glidr/releases/download/v2.1.0/GlidrCompanion.exe). Shows what is playing on the PC in Glidr's Media screen. Needs the .NET 8 Desktop Runtime. You can also install it from the phone: Settings, Sync media, Install PC app.
 
 All downloads are on the [Releases page](https://github.com/yashraj-shitole/Glidr/releases). The APK is signed with a debug key.
 
@@ -26,11 +26,16 @@ All downloads are on the [Releases page](https://github.com/yashraj-shitole/Glid
 
 ### Phone app
 * **Trackpad:** one finger moves the pointer, tap clicks, two-finger tap right-clicks, two fingers scroll,
-  press and hold to drag. Scroll strip on the right edge, left and right mouse buttons under the pad.
+  press and hold to drag, pinch to zoom, three-finger swipe down to show the desktop. Scroll strip on the right
+  edge with momentum scrolling, left and right mouse buttons under the pad.
+* **Quick keys:** Ctrl, Shift and Alt held for the next click or key, plus Copy, Paste and Undo.
 * Pointer speed, acceleration curve (Off / Low / Med / High), scroll speed and smoothing.
 * **Keyboard sheet:** Keys with a 123 symbols layer, Windows shortcuts and Voice dictation (the phone's speech
-  recogniser types for you). US, UK and DE keyboard layouts.
+  recogniser types for you). US, UK and DE keyboard layouts. Swipe along Space to move the caret.
 * **Media:** media keys, a horizontal volume dial and, with the companion, a live now-playing card with cover art.
+* **Present:** Previous and Next slide buttons, a timer that can buzz at intervals, slideshow keys, and the phone's
+  volume keys turn slides.
+* Quick Settings tile, launcher shortcuts (Connect, Media, Present) and media buttons on the lock-screen notification.
 * **Keep awake:** nudges the mouse a few pixels on a timer (15 s to 2 min, optional auto-stop) so the PC does not sleep.
 * Runs as a foreground service with an ongoing notification (Pause / Nudge now / Stop), promoted to an Android 16
   Live Update. Auto-reconnect, forget PC.
