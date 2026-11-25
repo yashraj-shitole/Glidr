@@ -9,9 +9,9 @@ It uses the Bluetooth HID Device profile, so the PC needs no software for basic 
 | PC companion (tray, optional) | `windows/` | .NET 8 tray app, Windows media session, Bluetooth RFCOMM |
 | Docs and design | `docs/` | [Play Store checklist](docs/play-store-checklist.md), store icons, [design mockup](docs/design/) |
 
-## Download (v2.1.0)
-- **Phone app:** [Glidr-2.1.0.apk](https://github.com/yashraj-shitole/Glidr/releases/download/v2.1.0/Glidr-2.1.0.apk). Android 10 or newer; allow installing from your browser or file manager.
-- **PC app (optional):** [GlidrCompanion.exe](https://github.com/yashraj-shitole/Glidr/releases/download/v2.1.0/GlidrCompanion.exe). Shows what is playing on the PC in Glidr's Media screen. Needs the .NET 8 Desktop Runtime. You can also install it from the phone: Settings, Sync media, Install PC app.
+## Download (v2.2.0)
+- **Phone app:** [Glidr-2.2.0.apk](https://github.com/yashraj-shitole/Glidr/releases/download/v2.2.0/Glidr-2.2.0.apk). Android 10 or newer; allow installing from your browser or file manager.
+- **PC app (optional):** [GlidrCompanion.exe](https://github.com/yashraj-shitole/Glidr/releases/download/v2.2.0/GlidrCompanion.exe). Shows what is playing on the PC in Glidr's Media screen. Needs the .NET 8 Desktop Runtime. You can also install it from the phone: Settings, Sync media, Install PC app.
 
 All downloads are on the [Releases page](https://github.com/yashraj-shitole/Glidr/releases). The APK is signed with a debug key.
 
@@ -39,6 +39,8 @@ it over an older version, and uninstalling resets your Glidr settings.
 * **Present:** Previous and Next slide buttons, a timer that can buzz at intervals, slideshow keys, and the phone's
   volume keys turn slides.
 * Quick Settings tile, launcher shortcuts (Connect, Media, Present) and media buttons on the lock-screen notification.
+* Springy micro-animations on controls and screen changes, switched off by Reduce motion or Android's "remove
+  animations" setting.
 * **Keep awake:** nudges the mouse a few pixels on a timer (15 s to 2 min, optional auto-stop) so the PC does not sleep.
 * Runs as a foreground service with an ongoing notification (Pause / Nudge now / Stop), promoted to an Android 16
   Live Update. Auto-reconnect, forget PC.
