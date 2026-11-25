@@ -87,9 +87,11 @@ fun PressBox(
     background: Color = Glidr.colors.s2,
     border: Boolean = true,
     pressedScale: Float = PressScale.CONTROL,
+    /** Pass one to let the content react to the press as well. */
+    source: MutableInteractionSource? = null,
     content: @Composable () -> Unit,
 ) {
-    val src = remember { MutableInteractionSource() }
+    val src = source ?: remember { MutableInteractionSource() }
     Box(
         modifier
             .pressScale(src, pressedScale)

@@ -373,7 +373,8 @@ private fun ActionRow(
     Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = Space.sm), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = Space.md)) {
             Label(title, color = c.text, style = Glidr.type.body)
-            if (sub.isNotEmpty()) Label(sub, color = if (subAccent) c.accentText else c.dim, style = Glidr.type.small)
+            // A status that changes (checking, up to date) rises into place.
+            if (sub.isNotEmpty()) Label(sub, Modifier.enterOnChange(sub, y = Space.xs), if (subAccent) c.accentText else c.dim, Glidr.type.small)
         }
         if (showAction) {
             PressBox(onClick, Modifier.height(48.dp), actionDescription, RoundedCornerShape(Radius.card)) {

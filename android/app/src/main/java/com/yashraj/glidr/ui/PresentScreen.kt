@@ -1,8 +1,16 @@
 package com.yashraj.glidr.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -100,6 +108,9 @@ fun PresentScreen(engine: HidEngine, settings: Settings, state: PresentState, co
 private fun TimerCard(state: PresentState) {
     val c = Glidr.colors
     val shape = RoundedCornerShape(Radius.card)
+    var resets by remember { mutableIntStateOf(0) }
+    val toggleBg by animateColorAsState(if (state.running) c.s2 else c.accent, settleSpec(), label = "timerBg")
+    val status by animateColorAsState(if (state.running) c.accentText else c.dim, settleSpec(), label = "timerStatus")
     Column(
         Modifier.fillMaxWidth().clip(shape).background(c.s1).border(1.dp, c.line, shape).padding(Space.lg),
         verticalArrangement = Arrangement.spacedBy(Space.md),
@@ -107,22 +118,25 @@ private fun TimerCard(state: PresentState) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Label(
-                    formatElapsed(state.elapsedSec), color = c.text,
+                    formatElapsed(state.elapsedSec), Modifier.popOnChange(resets, from = 0.85f), color = c.text,
                     style = Glidr.type.mono.copy(fontSize = 40.sp, fontWeight = FontWeight.SemiBold),
                 )
                 Label(
                     stringResource(if (state.running) R.string.present_running else R.string.present_timer),
-                    color = if (state.running) c.accentText else c.dim, style = Glidr.type.small,
+                    Modifier.enterOnChange(state.running, y = Space.xs), status, Glidr.type.small,
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 PressBox(
                     state.onToggleTimer, Modifier.height(48.dp).width(96.dp), stringResource(if (state.running) R.string.pause else R.string.present_start_timer),
-                    RoundedCornerShape(Radius.card), background = if (state.running) c.s2 else c.accent, border = state.running,
+                    RoundedCornerShape(Radius.card), background = toggleBg, border = state.running,
                 ) {
-                    Label(stringResource(if (state.running) R.string.pause else R.string.present_start_timer), color = if (state.running) c.text else c.ink)
+                    Label(
+                        stringResource(if (state.running) R.string.pause else R.string.present_start_timer),
+                        Modifier.enterOnChange(state.running, y = Space.sm), if (state.running) c.text else c.ink,
+                    )
                 }
-                PressBox(state.onResetTimer, Modifier.height(48.dp), stringResource(R.string.present_reset), RoundedCornerShape(Radius.card)) {
+                PressBox({ resets++; state.onResetTimer() }, Modifier.height(48.dp), stringResource(R.string.present_reset), RoundedCornerShape(Radius.card)) {
                     Label(stringResource(R.string.present_reset), Modifier.padding(horizontal = 20.dp))
                 }
             }
@@ -158,11 +172,12 @@ private fun ShowKeys(engine: HidEngine, settings: Settings) {
         for (k in SHOW_KEYS) {
             val name = stringResource(k.nameRes)
             val desc = stringResource(k.descRes)
+            val src = remember { MutableInteractionSource() }
             Column(
-                Modifier.weight(1f).height(64.dp).clip(RoundedCornerShape(Radius.control)).background(c.s2)
+                Modifier.weight(1f).height(64.dp).pressScale(src, PressScale.CARD).clip(RoundedCornerShape(Radius.control)).background(c.s2)
                     .border(1.dp, c.line, RoundedCornerShape(Radius.control))
                     .semantics { role = Role.Button; contentDescription = desc }
-                    .clickable {
+                    .clickable(interactionSource = src, indication = LocalIndication.current) {
                         val usage = k.letter?.let { engine.layout.strokeFor(it)?.usage } ?: k.usage
                         if (engine.connected && usage != 0) {
                             engine.pressKey(usage, k.mods)
@@ -194,17 +209,24 @@ private fun VolumeKeysRow(state: PresentState) {
 @Composable
 private fun SlideButtons(state: PresentState, modifier: Modifier) {
     val c = Glidr.colors
+    // While held, each chevron leans the way it will turn the slides.
+    val prev = remember { MutableInteractionSource() }
+    val next = remember { MutableInteractionSource() }
+    val prevDown by prev.collectIsPressedAsState()
+    val nextDown by next.collectIsPressedAsState()
+    val prevLean = animateFloatAsState(if (prevDown) -1f else 0f, motionSpec(), label = "prevLean")
+    val nextLean = animateFloatAsState(if (nextDown) 1f else 0f, motionSpec(), label = "nextLean")
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(Space.md)) {
         PressBox(
             { state.onSlide(false) }, Modifier.weight(1f).fillMaxHeight(), stringResource(R.string.present_prev),
-            RoundedCornerShape(Radius.pad),
-        ) { Icon(Ico.Back, c.text, 40.dp) }
+            RoundedCornerShape(Radius.pad), pressedScale = PressScale.LARGE, source = prev,
+        ) { Box(Modifier.graphicsLayer { translationX = prevLean.value * Space.md.toPx() }) { Icon(Ico.Back, c.text, 40.dp) } }
         PressBox(
             { state.onSlide(true) }, Modifier.weight(1.6f).fillMaxHeight(), stringResource(R.string.present_next),
-            RoundedCornerShape(Radius.pad), background = c.accent, border = false,
+            RoundedCornerShape(Radius.pad), background = c.accent, border = false, pressedScale = PressScale.LARGE, source = next,
         ) {
             // The chevron icon points left; turn it for "next".
-            Box(Modifier.graphicsLayer { rotationZ = 180f }) { Icon(Ico.Back, c.ink, 48.dp) }
+            Box(Modifier.graphicsLayer { rotationZ = 180f; translationX = nextLean.value * Space.md.toPx() }) { Icon(Ico.Back, c.ink, 48.dp) }
         }
     }
 }

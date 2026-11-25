@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -86,7 +87,8 @@ fun MediaScreen(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (compact) Space.lg else Space.xl, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
             PressBox({ send(Keys.CONSUMER_PREV) }, Modifier.size(side), stringResource(R.string.prev_track), CircleShape) { Icon(Ico.Prev, c.text, 24.dp) }
             PressBox({ send(Keys.CONSUMER_PLAY_PAUSE) }, Modifier.size(centre), stringResource(R.string.play_pause), CircleShape, background = c.accent, border = false) {
-                Icon(if (now?.playing == true) Ico.Pause else Ico.Play, c.ink, if (compact) 32.dp else 40.dp)
+                val playing = now?.playing == true
+                Box(Modifier.popOnChange(playing, from = 0.5f)) { Icon(if (playing) Ico.Pause else Ico.Play, c.ink, if (compact) 32.dp else 40.dp) }
             }
             PressBox({ send(Keys.CONSUMER_NEXT) }, Modifier.size(side), stringResource(R.string.next_track), CircleShape) { Icon(Ico.Next, c.text, 24.dp) }
         }
@@ -129,7 +131,8 @@ private fun NowPlayingCard(now: NowPlaying?, link: CompanionState, modifier: Mod
     val c = Glidr.colors
     val shape = RoundedCornerShape(Radius.sheet)
     Column(
-        modifier.clip(shape).background(c.s1).border(1.dp, c.line, shape).padding(20.dp),
+        // The card eases in when the PC starts or stops reporting a track.
+        modifier.enterOnChange(now == null, y = Space.md).clip(shape).background(c.s1).border(1.dp, c.line, shape).padding(20.dp),
         verticalArrangement = Arrangement.SpaceBetween,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -159,7 +162,14 @@ private fun NowPlayingCard(now: NowPlaying?, link: CompanionState, modifier: Mod
             val elapsed = (now.positionMs + if (now.playing) (tick - now.receivedAtMs).coerceAtLeast(0) else 0)
                 .coerceIn(0, if (now.durationMs > 0) now.durationMs else Long.MAX_VALUE)
 
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            // The cover sits back a little while paused. A new cover, then its title and artist, fade into place.
+            val rest = animateFloatAsState(if (now.playing) 1f else 0.94f, motionSpec(Spring.StiffnessMediumLow), label = "cover")
+            val track = now.title to now.artist
+            Box(
+                Modifier.weight(1f).fillMaxWidth().enterOnChange(now.art ?: track, x = Space.xl)
+                    .graphicsLayer { scaleX = rest.value; scaleY = rest.value },
+                contentAlignment = Alignment.Center,
+            ) {
                 val art = now.art
                 if (art != null) {
                     // Show the artwork in its own shape (square album cover or 16:9 video banner), uncropped.
@@ -176,7 +186,7 @@ private fun NowPlayingCard(now: NowPlaying?, link: CompanionState, modifier: Mod
                 }
             }
             Box(Modifier.height(16.dp))
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.fillMaxWidth().enterOnChange(track, y = Space.md), horizontalAlignment = Alignment.CenterHorizontally) {
                 Label(now.title.ifEmpty { stringResource(R.string.unknown_title) }, color = c.text, style = Glidr.type.bodyLarge, maxLines = 1)
                 val sub = listOf(now.artist, now.app).filter { it.isNotBlank() }.joinToString(" · ")
                 if (sub.isNotEmpty()) Label(sub, color = c.dim, style = Glidr.type.small, maxLines = 1)
@@ -299,7 +309,13 @@ private fun VolumeStrip(engine: HidEngine, haptic: Int, height: Dp, modifier: Mo
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = Space.xl), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Icon(Ico.VolDown, c.text, 24.dp)
-            if (steps != 0) Label(if (steps > 0) "+$steps" else "−${-steps}", color = c.accentText, style = Glidr.type.mono)
+            // Each step bumps the counter. The last count stays on it while it fades.
+            val lastSteps = remember { intArrayOf(0) }
+            if (steps != 0) lastSteps[0] = steps
+            Presence(steps != 0) {
+                val n = lastSteps[0]
+                Label(if (n > 0) "+$n" else "−${-n}", Modifier.popOnChange(n, from = 1.35f), c.accentText, Glidr.type.mono)
+            }
             Icon(Ico.VolUp, c.text, 24.dp)
         }
     }
