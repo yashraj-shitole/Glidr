@@ -1,12 +1,18 @@
 package com.yashraj.glidr.ui.pad
 
 import android.os.SystemClock
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -56,7 +62,13 @@ import com.yashraj.glidr.ui.Ico
 import com.yashraj.glidr.ui.Icon
 import com.yashraj.glidr.ui.Label
 import com.yashraj.glidr.ui.PressBox
+import com.yashraj.glidr.ui.PressScale
 import com.yashraj.glidr.ui.Segmented
+import com.yashraj.glidr.ui.enterFromSide
+import com.yashraj.glidr.ui.enterOnChange
+import com.yashraj.glidr.ui.motionSpec
+import com.yashraj.glidr.ui.pressScale
+import com.yashraj.glidr.ui.settleSpec
 import com.yashraj.glidr.ui.theme.Glidr
 import com.yashraj.glidr.ui.theme.Radius
 import com.yashraj.glidr.ui.theme.Space
@@ -202,10 +214,12 @@ fun KeyboardSheet(
             }
         }
 
-        when (Tab.entries[tab]) {
+        // Each tab's content comes in from the side of the tab that was tapped.
+        Box(Modifier.enterFromSide(tab, Space.xl)) { when (Tab.entries[tab]) {
             Tab.Keys -> Column(verticalArrangement = Arrangement.spacedBy(Space.key)) {
                 ModifierRow()
-                if (symbols) {
+                // Switching between letters and symbols fades the new layer up.
+                Column(Modifier.enterOnChange(symbols, y = Space.sm), verticalArrangement = Arrangement.spacedBy(Space.key)) { if (symbols) {
                     for (row in SYMBOL_ROWS) {
                         Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                             for (ch in row) Key(ch.toString(), Modifier.weight(1f)) { typeChar(ch) }
@@ -222,7 +236,7 @@ fun KeyboardSheet(
                             if (idx == 2) Key("⌫", Modifier.weight(1.5f), stringResource(R.string.key_backspace), fn = true, repeat = true, repeatWhile = live) { send(Keys.BACKSPACE) }
                         }
                     }
-                }
+                } }
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.key)) {
                     Key(
                         if (symbols) "ABC" else "123", Modifier.weight(1.4f),
@@ -246,10 +260,11 @@ fun KeyboardSheet(
                     Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                         for (s in rowItems) {
                             val name = stringResource(s.nameRes)
+                            val src = remember { MutableInteractionSource() }
                             Column(
-                                Modifier.weight(1f).height(72.dp).clip(RoundedCornerShape(Radius.control)).background(c.s2)
+                                Modifier.weight(1f).height(72.dp).pressScale(src, PressScale.CARD).clip(RoundedCornerShape(Radius.control)).background(c.s2)
                                     .border(1.dp, c.line, RoundedCornerShape(Radius.control))
-                                    .clickable {
+                                    .clickable(interactionSource = src, indication = LocalIndication.current) {
                                         if (engine.connected) {
                                             engine.pressKey(s.usageFor(engine.layout), s.mods)
                                             haptics.play(Haptic.Confirm, level)
@@ -303,7 +318,7 @@ fun KeyboardSheet(
             }
 
             Tab.Voice -> VoicePanel(engine, settings, stt, hasMic, onRequestMic, haptics, area)
-        }
+        } }
     }
 }
 
@@ -353,8 +368,14 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
         Row(Modifier.fillMaxWidth().height(84.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             Meter(micLevel, reversed = true)
             Box(Modifier.size(Space.xl))
+            // The button swells with the voice (smoothed between level updates) and dips under the finger.
+            val swell = animateFloatAsState(micLevel, motionSpec(Spring.StiffnessMedium, 0.8f), label = "micSwell")
+            var micDown by remember { mutableStateOf(false) }
+            val micBg by animateColorAsState(if (listening) c.accent else c.s3, settleSpec(), label = "micBg")
             Box(
-                Modifier.size(64.dp).scale(1f + 0.12f * micLevel).clip(CircleShape).background(if (listening) c.accent else c.s3)
+                Modifier.size(64.dp).pressScale(micDown)
+                    .graphicsLayer { val s = 1f + 0.12f * swell.value; scaleX = s; scaleY = s }
+                    .clip(CircleShape).background(micBg)
                     .semantics {
                         role = Role.Button
                         contentDescription = dictate
@@ -369,8 +390,9 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
                             val wasListening = listeningNow
                             note = null
                             if (!wasListening) { stt.start(); haptics.play(Haptic.Click, settings.haptics) }
+                            micDown = true
                             val t0 = SystemClock.uptimeMillis()
-                            val up = waitForUpOrCancellation()
+                            val up = try { waitForUpOrCancellation() } finally { micDown = false }
                             val held = SystemClock.uptimeMillis() - t0
                             if (up == null || wasListening || held >= HOLD_TO_TALK_MS) stt.stop()
                         }
@@ -380,6 +402,7 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
             Box(Modifier.size(Space.xl))
             Meter(micLevel, reversed = false)
         }
+        val sendBg by animateColorAsState(if (typing || text.isBlank()) c.s3 else c.accent, settleSpec(), label = "sendBg")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
             PressBox(
                 onClick = { if (text.isNotEmpty() && !typing) { stt.stop(); stt.clear(); note = null } },
@@ -407,7 +430,7 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
                 modifier = Modifier.weight(2f).height(48.dp),
                 description = stringResource(if (typing) R.string.stop_typing else R.string.send_to_pc),
                 shape = CircleShape,
-                background = if (typing) c.s3 else if (text.isBlank()) c.s3 else c.accent,
+                background = sendBg,
                 border = false,
             ) {
                 Label(
@@ -422,10 +445,11 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
 @Composable
 private fun Meter(level: Float, reversed: Boolean) {
     val c = Glidr.colors
+    val smooth by animateFloatAsState(level, motionSpec(Spring.StiffnessMedium, 0.8f), label = "meter")
     val shape = listOf(0.35f, 0.6f, 0.9f, 0.7f, 1f, 0.55f, 0.8f, 0.4f).let { if (reversed) it.reversed() else it }
     Row(Modifier.size(width = 56.dp, height = 40.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         for (s in shape) {
-            Box(Modifier.size(3.dp, (4 + 32 * level * s).dp).clip(CircleShape).background(if (level > 0.02f) c.accent else c.s3))
+            Box(Modifier.size(3.dp, (4 + 32 * smooth.coerceAtLeast(0f) * s).dp).clip(CircleShape).background(if (level > 0.02f) c.accent else c.s3))
         }
     }
 }
@@ -446,15 +470,19 @@ private fun Key(
     val fire by rememberUpdatedState(press)
     val keepGoing by rememberUpdatedState(repeatWhile)
     var pressed by remember { mutableStateOf(false) }
-    val bg = when {
-        on || go -> c.accent
-        pressed -> c.s3
-        else -> c.s2
-    }
-    val fg = if (on || go) c.ink else if (fn) c.dim else c.text
+    // Darkens the instant it is touched, then eases back: fast typing stays visible without feeling slow.
+    val bg by animateColorAsState(
+        when {
+            on || go -> c.accent
+            pressed -> c.s3
+            else -> c.s2
+        },
+        if (pressed) snap() else settleSpec(Spring.StiffnessMediumLow), label = "keyBg",
+    )
+    val fg by animateColorAsState(if (on || go) c.ink else if (fn) c.dim else c.text, settleSpec(), label = "keyFg")
     val name = desc ?: label
     Box(
-        modifier.height(KEY_HEIGHT).clip(RoundedCornerShape(Radius.key)).background(bg)
+        modifier.height(KEY_HEIGHT).pressScale(pressed, PressScale.KEY).clip(RoundedCornerShape(Radius.key)).background(bg)
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = name

@@ -1,6 +1,15 @@
 package com.yashraj.glidr.ui.pad
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.yashraj.glidr.ui.Presence
+import com.yashraj.glidr.ui.PressScale
+import com.yashraj.glidr.ui.popOnChange
+import com.yashraj.glidr.ui.pressScale
+import com.yashraj.glidr.ui.settleSpec
 import kotlinx.coroutines.withTimeoutOrNull
 import android.os.SystemClock
 import androidx.compose.foundation.Canvas
@@ -38,7 +47,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.draw.alpha
 import com.yashraj.glidr.ui.theme.Radius
 import com.yashraj.glidr.ui.theme.Space
 import androidx.compose.ui.semantics.semantics
@@ -98,6 +106,8 @@ fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAw
     LaunchedEffect(glass) { glass.run() }
     var tapPoint by remember { mutableStateOf(Offset.Zero) }
     val ripple = remember { Animatable(1f) }
+    // Read while drawing, so neither dimming nor the ripple recomposes the pad.
+    val dim = animateFloatAsState(if (connected) 1f else 0.45f, settleSpec(Spring.StiffnessMediumLow), label = "padDim")
     val level = settings.haptics
     val padDesc = stringResource(R.string.trackpad)
 
@@ -109,7 +119,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAw
             .border(1.dp, c.line, RoundedCornerShape(Radius.pad))
             // Every value the gesture block reads must be a key, or it keeps using the value from when it started
             // (left-handed mode would leave the strip's dead zone on the old side; reduce motion a stale glass).
-            .pointerInput(settings.tapToClick, level, settings.hapticScroll, settings.leftHanded, glass) {
+            .pointerInput(settings.tapToClick, level, settings.hapticScroll, settings.leftHanded, glass, reduce) {
                 awaitEachGesture {
                     val first = awaitFirstDown(requireUnconsumed = false)
                     val zone = STRIP_ZONE_DP.dp.toPx()
@@ -253,7 +263,7 @@ fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAw
                         haptics.play(Haptic.Tick, level)
                     } else if (quick && settings.tapToClick) {
                         tapPoint = first.position
-                        scope.launch { ripple.snapTo(0f); ripple.animateTo(1f) }
+                        if (!reduce) scope.launch { ripple.snapTo(0f); ripple.animateTo(1f) }
                         when (maxPointers) {
                             1 -> { engine.click(HidReports.BUTTON_LEFT); haptics.play(Haptic.Click, level) }
                             2 -> { engine.click(HidReports.BUTTON_RIGHT); haptics.play(Haptic.Thud, level) }
@@ -262,27 +272,29 @@ fun PadSurface(engine: HidEngine, settings: Settings, connected: Boolean, keepAw
                 }
             },
     ) {
-        Canvas(Modifier.fillMaxSize().alpha(if (connected) 1f else 0.45f)) {
+        Canvas(Modifier.fillMaxSize().graphicsLayer { alpha = dim.value }) {
             drawGlass(glass, c)
             val r = ripple.value
             if (r < 1f) {
                 drawCircle(c.accent.copy(alpha = 1f - r), (8 + 47 * r).dp.toPx(), tapPoint, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
             }
         }
-        if (!connected) {
-            // Centered, and padded past the 48dp scroll strip on both sides so the line never runs under it.
+        // Centered, and padded past the 48dp scroll strip on both sides so the line never runs under it.
+        Presence(!connected, Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal = 64.dp)) {
             Label(
-                stringResource(R.string.pad_not_connected),
-                Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal = 64.dp), c.dim,
+                stringResource(R.string.pad_not_connected), Modifier.fillMaxWidth(), c.dim,
                 Glidr.type.body.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center),
             )
         }
         Box(Modifier.align(Alignment.TopStart).padding(Space.lg).clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(horizontal = Space.md, vertical = Space.sm)) {
             Label(stringResource(R.string.speed_chip, settings.sensitivity), color = c.dim, style = Glidr.type.mono)
         }
-        if (keepAwakeChip != null) {
-            Box(Modifier.align(Alignment.TopEnd).padding(Space.lg).clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(horizontal = Space.md, vertical = Space.sm)) {
-                Label(keepAwakeChip, color = c.dim, style = Glidr.type.mono)
+        // Keeps the last countdown text on screen while the chip fades away.
+        val lastChip = remember { arrayOf("") }
+        if (keepAwakeChip != null) lastChip[0] = keepAwakeChip
+        Presence(keepAwakeChip != null, Modifier.align(Alignment.TopEnd).padding(Space.lg)) {
+            Box(Modifier.clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(horizontal = Space.md, vertical = Space.sm)) {
+                Label(keepAwakeChip ?: lastChip[0], color = c.dim, style = Glidr.type.mono)
             }
         }
         Label(stringResource(R.string.pad_hint), Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp), c.dim, Glidr.type.small)
@@ -388,8 +400,10 @@ fun MouseButtons(engine: HidEngine, settings: Settings, modifier: Modifier = Mod
                 else -> Triple(stringResource(R.string.right), HidReports.BUTTON_RIGHT, 2f)
             }
             val desc = if (i == 1) stringResource(R.string.middle_click) else label
+            var down by remember { mutableStateOf(false) }
+            val bg by animateColorAsState(if (down) Glidr.colors.s3 else Glidr.colors.s2, if (down) snap() else settleSpec(), label = "mouseBg")
             Box(
-                Modifier.weight(w).fillMaxHeight().clip(RoundedCornerShape(Radius.control)).background(Glidr.colors.s2)
+                Modifier.weight(w).fillMaxHeight().pressScale(down, PressScale.CARD).clip(RoundedCornerShape(Radius.control)).background(bg)
                     .border(1.dp, Glidr.colors.line, RoundedCornerShape(Radius.control))
                     .semantics {
                         role = Role.Button
@@ -401,7 +415,9 @@ fun MouseButtons(engine: HidEngine, settings: Settings, modifier: Modifier = Mod
                         detectTapGestures(onPress = {
                             engine.buttonDown(mask)
                             haptics.play(if (mask == HidReports.BUTTON_RIGHT) Haptic.Thud else Haptic.Click, level)
+                            down = true
                             tryAwaitRelease()
+                            down = false
                             engine.buttonUp(mask)
                         })
                     },
@@ -442,24 +458,34 @@ fun QuickKeys(engine: HidEngine, settings: Settings, modifier: Modifier = Modifi
         for ((label, bit) in listOf("Ctrl" to HidReports.MOD_CTRL, "Shift" to HidReports.MOD_SHIFT, "Alt" to HidReports.MOD_ALT)) {
             val on = held and bit != 0
             val desc = stringResource(R.string.quick_key_held, label)
-            QuickChip(label, on, Modifier.weight(1f), Modifier.semantics { contentDescription = desc }.toggleable(value = on, role = Role.Switch) {
-                if (engine.connected) { engine.toggleHeld(bit); haptics.play(Haptic.Tick, level) } else haptics.play(Haptic.Reject, settings.haptics)
-            })
+            QuickChip(label, on, Modifier.weight(1f)) { src ->
+                Modifier.semantics { contentDescription = desc }.toggleable(value = on, interactionSource = src, indication = LocalIndication.current, role = Role.Switch) {
+                    if (engine.connected) { engine.toggleHeld(bit); haptics.play(Haptic.Tick, level) } else haptics.play(Haptic.Reject, settings.haptics)
+                }
+            }
         }
-        QuickChip(stringResource(R.string.sc_copy), false, Modifier.weight(1f), Modifier.clickable(role = Role.Button) { chord('c') })
-        QuickChip(stringResource(R.string.sc_paste), false, Modifier.weight(1f), Modifier.clickable(role = Role.Button) { chord('v') })
-        QuickChip(stringResource(R.string.sc_undo), false, Modifier.weight(1f), Modifier.clickable(role = Role.Button) { chord('z') })
+        for ((label, letter) in listOf(R.string.sc_copy to 'c', R.string.sc_paste to 'v', R.string.sc_undo to 'z')) {
+            QuickChip(stringResource(label), false, Modifier.weight(1f)) { src ->
+                Modifier.clickable(interactionSource = src, indication = LocalIndication.current, role = Role.Button) { chord(letter) }
+            }
+        }
     }
 }
 
+/** [interaction] makes the chip clickable or toggleable, reporting presses to the source it is given. */
 @Composable
-private fun QuickChip(label: String, on: Boolean, modifier: Modifier, interaction: Modifier) {
+private fun QuickChip(label: String, on: Boolean, modifier: Modifier, interaction: @Composable (MutableInteractionSource) -> Modifier) {
     val c = Glidr.colors
+    val src = remember { MutableInteractionSource() }
+    // Latching fills the chip with the accent and gives it a bounce; releasing fades it back.
+    val bg by animateColorAsState(if (on) c.accent else c.s2, settleSpec(), label = "chipBg")
+    val edge by animateColorAsState(if (on) c.accent else c.line, settleSpec(), label = "chipEdge")
+    val fg by animateColorAsState(if (on) c.ink else c.text, settleSpec(), label = "chipFg")
     Box(
-        modifier.fillMaxHeight().clip(RoundedCornerShape(Radius.key)).background(if (on) c.accent else c.s2)
-            .border(1.dp, if (on) c.accent else c.line, RoundedCornerShape(Radius.key)).then(interaction),
+        modifier.fillMaxHeight().popOnChange(on, from = 0.85f).pressScale(src).clip(RoundedCornerShape(Radius.key)).background(bg)
+            .border(1.dp, edge, RoundedCornerShape(Radius.key)).then(interaction(src)),
         contentAlignment = Alignment.Center,
-    ) { Label(label, color = if (on) c.ink else c.text, style = Glidr.type.small, maxLines = 1) }
+    ) { Label(label, color = fg, style = Glidr.type.small, maxLines = 1) }
 }
 
 @Composable
