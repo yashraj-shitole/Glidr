@@ -50,7 +50,7 @@ Mockup screens: Trackpad, Keep awake on, Keyboard, Windows shortcuts, Media, Set
 - Accent Volt `#D4FF3F` with ink `#0B0C0A` on top; on Paper use `#4A6000` for accent text. Other accents: Ember `#FF8A5B`, Sky `#7DB2FF`, Rose `#FF7FB0`.
 - Fonts: Geist and Geist Mono in `android/app/src/main/res/font`.
 - Layout grid (rules and sources in `ui/theme/Theme.kt`): 4dp sub-grid, 8dp components, 16dp gutters, 12dp between stacked components (pad, mouse buttons, keyboard), 8dp inside a group, 24dp between settings sections. Only key grids use 6dp. Use `Space.*` and `Radius.*`, not dp literals; the only literals left are hairlines and drawn graphics.
-- Motion: springs, not tweens. Honour the system "remove animations" setting and the in-app Reduce motion switch.
+- Motion: springs, not tweens. Honour the system "remove animations" setting and the in-app Reduce motion switch. Micro-animations come from `ui/Motion.kt` (`pressScale`, `enterOnChange`, `popOnChange`, `appear`, `Reveal`, `Presence`, `motionSpec`/`settleSpec`), which handles both. Put `pressScale` after a `pointerInput`, so the touch target does not shrink under a held finger.
 - Haptic vocabulary: click (taps, keys), thud (right click), tick (scroll detents, modifier latch), confirm (connected, sent), reject (errors). Use `VibrationEffect.Composition` when supported (API 30+), otherwise predefined effects (API 29+) or `performHapticFeedback`. Always respect the haptics intensity setting.
 
 ## Permissions
