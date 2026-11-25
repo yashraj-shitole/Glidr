@@ -3,9 +3,17 @@ package com.yashraj.glidr.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import kotlin.math.sin
 import kotlin.math.cos
 import kotlin.math.ceil
@@ -55,7 +63,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -69,12 +76,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.yashraj.glidr.ui.theme.Glidr
-import com.yashraj.glidr.ui.theme.LocalReduceMotion
-
-/** Springs, not tweens; no animation at all when Reduce motion is on. */
-@Composable
-fun <T> motionSpec(stiffness: Float = Spring.StiffnessMedium) =
-    if (LocalReduceMotion.current) snap<T>() else spring<T>(dampingRatio = 0.65f, stiffness = stiffness)
 
 /** Minimum 48dp touch target, spring press feedback, accessible description. */
 @Composable
@@ -85,14 +86,13 @@ fun PressBox(
     shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(Radius.control),
     background: Color = Glidr.colors.s2,
     border: Boolean = true,
+    pressedScale: Float = PressScale.CONTROL,
     content: @Composable () -> Unit,
 ) {
     val src = remember { MutableInteractionSource() }
-    val pressed by src.collectIsPressedAsState()
-    val s by animateFloatAsState(if (pressed) 0.94f else 1f, motionSpec(), label = "press")
     Box(
         modifier
-            .scale(s)
+            .pressScale(src, pressedScale)
             .clip(shape)
             .background(background, shape)
             .then(if (border) Modifier.border(1.dp, Glidr.colors.line, shape) else Modifier)
@@ -166,10 +166,12 @@ fun Icon(kind: Ico, tint: Color, size: Dp = 24.dp) {
 @Composable
 fun RoundIconButton(kind: Ico, description: String, onClick: () -> Unit, active: Boolean = false, size: Dp = 48.dp) {
     val c = Glidr.colors
+    val bg by animateColorAsState(if (active) c.accent else c.s2, settleSpec(), label = "iconBg")
+    val fg by animateColorAsState(if (active) c.ink else c.text, settleSpec(), label = "iconFg")
     PressBox(
         onClick, Modifier.size(size), description, CircleShape,
-        background = if (active) c.accent else c.s2, border = !active,
-    ) { Icon(kind, if (active) c.ink else c.text) }
+        background = bg, border = !active,
+    ) { Box(Modifier.popOnChange(active, from = 0.6f)) { Icon(kind, fg) } }
 }
 
 /** Dim backdrop behind sheets and dialogs. */
@@ -183,43 +185,72 @@ fun Gap(h: Dp) = Spacer(Modifier.height(h))
 @Composable
 fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = Glidr.colors
-    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(Space.xs), horizontalArrangement = Arrangement.spacedBy(Space.hair)) {
-        options.forEachIndexed { i, label ->
-            val on = i == selected
-            val bg by animateColorAsState(if (on) c.accent else Color.Transparent, motionSpec(), label = "seg")
-            Box(
-                Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Radius.chip - Space.xs)).background(bg)
-                    .selectable(selected = on, role = Role.Tab, onClick = { onSelect(i) }),
-                contentAlignment = Alignment.Center,
-            ) { Label(label, color = if (on) c.ink else c.dim, maxLines = 1) }
+    val position = animateFloatAsState(selected.toFloat(), motionSpec(Spring.StiffnessMediumLow, 0.8f), label = "segPill")
+    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(Space.xs)) {
+        // The pill is drawn behind the labels, one segment wide, so sliding it costs a redraw and nothing else.
+        Row(
+            Modifier.fillMaxWidth().slidingPill(position, options.size, c.accent, Space.hair, Radius.chip - Space.xs),
+            horizontalArrangement = Arrangement.spacedBy(Space.hair),
+        ) {
+            options.forEachIndexed { i, label ->
+                val on = i == selected
+                val fg by animateColorAsState(if (on) c.ink else c.dim, settleSpec(), label = "segText")
+                val src = remember { MutableInteractionSource() }
+                Box(
+                    Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Radius.chip - Space.xs))
+                        .selectable(selected = on, interactionSource = src, indication = LocalIndication.current, role = Role.Tab, onClick = { onSelect(i) }),
+                    contentAlignment = Alignment.Center,
+                ) { Label(label, Modifier.pressScale(src, PressScale.KEY), color = fg, maxLines = 1) }
+            }
         }
     }
+}
+
+/**
+ * Draws the selection pill of a row of [count] equal cells separated by [gap]. [position] is the selected index,
+ * fractional while it slides; it is read while drawing.
+ */
+fun Modifier.slidingPill(position: State<Float>, count: Int, color: Color, gap: Dp, radius: Dp): Modifier = drawBehind {
+    val g = gap.toPx()
+    val cell = (size.width - g * (count - 1)) / count
+    drawRoundRect(color, Offset(position.value * (cell + g), 0f), Size(cell, size.height), CornerRadius(radius.toPx()))
 }
 
 /** The whole row is the switch, so the touch target is the full width, not just the 52dp graphic. */
 @Composable
 fun SwitchRow(title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
     val c = Glidr.colors
+    val src = remember { MutableInteractionSource() }
+    val pressed by src.collectIsPressedAsState()
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).toggleable(value = on, role = Role.Switch, onValueChange = onChange).padding(vertical = Space.sm),
+        Modifier.fillMaxWidth().heightIn(min = 64.dp)
+            .toggleable(value = on, interactionSource = src, indication = LocalIndication.current, role = Role.Switch, onValueChange = onChange)
+            .padding(vertical = Space.sm),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f).padding(end = Space.md)) {
             Label(title, color = c.text, style = Glidr.type.body)
             Label(sub, color = c.dim, style = Glidr.type.small)
         }
-        ToggleSwitch(on)
+        ToggleSwitch(on, pressed)
     }
 }
 
 /** The switch graphic only. The row around it is the toggleable, so the whole row is the touch target. */
 @Composable
-fun ToggleSwitch(on: Boolean) {
+fun ToggleSwitch(on: Boolean, pressed: Boolean = false) {
     val c = Glidr.colors
-    val bg by animateColorAsState(if (on) c.accent else c.s3, motionSpec(), label = "sw")
-    val x by animateFloatAsState(if (on) 20f else 0f, motionSpec(), label = "swx")
-    Box(Modifier.size(width = 52.dp, height = 32.dp).clip(CircleShape).background(bg).clearAndSetSemantics {}) {
-        Box(Modifier.padding(start = (4 + x).dp, top = 4.dp).size(24.dp).clip(CircleShape).background(if (on) c.ink else c.dim))
+    val bg by animateColorAsState(if (on) c.accent else c.s3, settleSpec(), label = "sw")
+    val thumb by animateColorAsState(if (on) c.ink else c.dim, settleSpec(), label = "swThumb")
+    val x = animateFloatAsState(if (on) 1f else 0f, motionSpec(), label = "swx")
+    val stretch = animateFloatAsState(if (pressed) 1f else 0f, motionSpec(), label = "swStretch")
+    Canvas(Modifier.size(width = 52.dp, height = 32.dp).clip(CircleShape).background(bg).clearAndSetSemantics {}) {
+        // A 24dp thumb, 4dp inside the track, that widens towards the far side while pressed.
+        val d = 24.dp.toPx()
+        val inset = 4.dp.toPx()
+        val w = d + 6.dp.toPx() * stretch.value
+        val left = inset + (size.width - 2 * inset - w) * x.value
+        drawRoundRect(thumb, Offset(left, inset), Size(w, d), CornerRadius(d / 2))
     }
 }
 
@@ -236,6 +267,8 @@ fun Slider(
     val span = range.endInclusive - range.start
     val frac = ((value - range.start) / span).coerceIn(0f, 1f)
     val change by rememberUpdatedState(onChange)
+    var held by remember { mutableStateOf(false) }
+    val grow = animateFloatAsState(if (held) 1.2f else 1f, motionSpec(), label = "thumb")
     fun snap(raw: Float) = (Math.round(raw / step) * step).coerceIn(range.start, range.endInclusive)
     fun at(x: Float, w: Float) = snap(range.start + (x / w).coerceIn(0f, 1f) * span)
     Box(
@@ -253,6 +286,18 @@ fun Slider(
                     Key.DirectionLeft, Key.DirectionDown -> { change(snap(value - step)); true }
                     Key.DirectionRight, Key.DirectionUp -> { change(snap(value + step)); true }
                     else -> false
+                }
+            }
+            // Only watches, to grow the thumb: the tap and drag detectors below still get every event.
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    held = true
+                    try {
+                        while (awaitPointerEvent(PointerEventPass.Initial).changes.any { it.pressed }) Unit
+                    } finally {
+                        held = false
+                    }
                 }
             }
             .pointerInput(range) { detectTapGestures { change(at(it.x, size.width.toFloat())) } }
@@ -274,7 +319,11 @@ fun Slider(
             }
         }
         BoxWithConstraints(Modifier.fillMaxWidth().fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
-            Box(Modifier.padding(start = (maxWidth - 28.dp) * frac).size(28.dp).clip(CircleShape).background(c.text))
+            Box(
+                Modifier.padding(start = (maxWidth - 28.dp) * frac).size(28.dp)
+                    .graphicsLayer { scaleX = grow.value; scaleY = grow.value }
+                    .clip(CircleShape).background(c.text),
+            )
         }
     }
 }
