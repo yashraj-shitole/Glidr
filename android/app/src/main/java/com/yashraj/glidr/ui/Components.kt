@@ -189,7 +189,7 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mod
     Box(modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.chip)).background(c.s2).padding(Space.xs)) {
         // The pill is drawn behind the labels, one segment wide, so sliding it costs a redraw and nothing else.
         Row(
-            Modifier.fillMaxWidth().slidingPill(position, options.size, c.accent, Space.hair, Radius.chip - Space.xs),
+            Modifier.fillMaxWidth().slidingPill(position, options.size, c.accent, Radius.chip - Space.xs, gap = Space.hair),
             horizontalArrangement = Arrangement.spacedBy(Space.hair),
         ) {
             options.forEachIndexed { i, label ->
@@ -210,7 +210,7 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mod
  * Draws the selection pill of a row of [count] equal cells separated by [gap]. [position] is the selected index,
  * fractional while it slides; it is read while drawing.
  */
-fun Modifier.slidingPill(position: State<Float>, count: Int, color: Color, gap: Dp, radius: Dp): Modifier = drawBehind {
+fun Modifier.slidingPill(position: State<Float>, count: Int, color: Color, radius: Dp, gap: Dp = 0.dp): Modifier = drawBehind {
     val g = gap.toPx()
     val cell = (size.width - g * (count - 1)) / count
     drawRoundRect(color, Offset(position.value * (cell + g), 0f), Size(cell, size.height), CornerRadius(radius.toPx()))

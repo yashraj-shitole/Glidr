@@ -1,10 +1,15 @@
 package com.yashraj.glidr.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -121,7 +127,7 @@ fun SettingsScreen(
                 }
                 Section(stringResource(R.string.keep_awake)) {
                     SwitchRow(stringResource(R.string.keep_awake_feature), stringResource(R.string.keep_awake_feature_sub), s.keepAwakeEnabled) { v -> update { it.copy(keepAwakeEnabled = v) } }
-                    if (s.keepAwakeEnabled) {
+                    Reveal(s.keepAwakeEnabled) { Column {
                         SwitchRow(stringResource(R.string.pause_touching), stringResource(R.string.pause_touching_sub), s.pauseWhileTouching) { v -> update { it.copy(pauseWhileTouching = v) } }
                         Pad {
                             Label(stringResource(R.string.nudge_style), color = c.text, style = Glidr.type.body)
@@ -145,7 +151,7 @@ fun SettingsScreen(
                                 s.autoStop, { v -> update { it.copy(autoStop = v) } },
                             )
                         }
-                    }
+                    } }
                 }
                 Section(stringResource(R.string.haptics)) {
                     Pad {
@@ -177,10 +183,12 @@ fun SettingsScreen(
                             ACCENT_COLORS.forEachIndexed { i, col ->
                                 val name = stringResource(ACCENT_NAME_RES[i])
                                 val on = i == s.accent
+                                val src = remember { MutableInteractionSource() }
+                                val ring by animateColorAsState(if (on) c.text else Color.Transparent, settleSpec(), label = "ring")
                                 Box(
-                                    Modifier.size(48.dp).clip(CircleShape).background(col)
-                                        .then(if (on) Modifier.border(3.dp, c.text, CircleShape) else Modifier)
-                                        .selectable(selected = on, role = Role.RadioButton, onClick = { update { it.copy(accent = i) } })
+                                    Modifier.size(48.dp).popOnChange(on, from = 0.85f).pressScale(src).clip(CircleShape).background(col)
+                                        .border(3.dp, ring, CircleShape)
+                                        .selectable(selected = on, interactionSource = src, indication = LocalIndication.current, role = Role.RadioButton, onClick = { update { it.copy(accent = i) } })
                                         .semantics { contentDescription = name },
                                 )
                             }
@@ -235,9 +243,10 @@ private enum class Confirm { Forget, Reset }
 @Composable
 private fun ConfirmDialog(title: String, body: String, action: String, onConfirm: () -> Unit, onClose: () -> Unit) {
     val c = Glidr.colors
-    Box(Modifier.fillMaxSize().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().appear().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.padding(Space.xl).widthIn(max = MAX_DIALOG_WIDTH).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.sheet))
+            Modifier.padding(Space.xl).widthIn(max = MAX_DIALOG_WIDTH).fillMaxWidth().appear(y = Space.lg, scale = 0.92f, fade = false)
+                .clip(RoundedCornerShape(Radius.sheet)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.sheet))
                 .clickable(enabled = false) {}.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {
@@ -257,10 +266,11 @@ private fun InstallPcAppDialog(pcConnected: Boolean, onInstallOnPc: (onDone: () 
     val hosted = COMPANION_DOWNLOAD_URL.isNotBlank()
     var phase by rememberSaveable { mutableStateOf(InstallPhase.Idle) }
     val steps = listOf(R.string.install_step_1, R.string.install_step_2, R.string.install_step_3, R.string.install_step_4)
-    Box(Modifier.fillMaxSize().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().appear().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.padding(Space.xl).widthIn(max = MAX_DIALOG_WIDTH).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.sheet))
-                .clickable(enabled = false) {}.verticalScroll(rememberScrollState()).padding(20.dp),
+            Modifier.padding(Space.xl).widthIn(max = MAX_DIALOG_WIDTH).fillMaxWidth().appear(y = Space.lg, scale = 0.92f, fade = false)
+                .clip(RoundedCornerShape(Radius.sheet)).background(c.s1).border(1.dp, c.line, RoundedCornerShape(Radius.sheet))
+                .clickable(enabled = false) {}.animateContentSize(motionSpec(Spring.StiffnessMediumLow, 1f)).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {
             Label(stringResource(R.string.install_pc_app), color = c.text, style = Glidr.type.heading)
@@ -413,8 +423,9 @@ private fun TryPad(sensitivity: Float, accel: Int) {
     var dot by remember { mutableStateOf<Offset?>(null) }
     var active by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(Radius.control)
+    val edge by animateColorAsState(if (active) c.accent else c.line, settleSpec(), label = "tryEdge")
     Box(
-        Modifier.fillMaxWidth().height(96.dp).clip(shape).background(c.s2).border(1.dp, if (active) c.accent else c.line, shape)
+        Modifier.fillMaxWidth().height(96.dp).clip(shape).background(c.s2).border(1.dp, edge, shape)
             .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)

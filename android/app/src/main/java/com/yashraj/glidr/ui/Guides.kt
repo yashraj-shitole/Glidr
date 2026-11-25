@@ -1,5 +1,8 @@
 package com.yashraj.glidr.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,8 +42,9 @@ import androidx.compose.ui.unit.dp
 fun NumberedStep(n: Int, text: String, done: Boolean, active: Boolean, extra: (@Composable ColumnScope.() -> Unit)? = null) {
     val c = Glidr.colors
     val lit = done || active
+    val badge by animateColorAsState(if (lit) c.accent else c.s3, settleSpec(Spring.StiffnessMediumLow), label = "step")
     Row(horizontalArrangement = Arrangement.spacedBy(Space.md), verticalAlignment = Alignment.Top) {
-        Box(Modifier.size(24.dp).clip(CircleShape).background(if (lit) c.accent else c.s3), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(24.dp).popOnChange(done, from = 0.5f).clip(CircleShape).background(badge), contentAlignment = Alignment.Center) {
             Label(if (done) "✓" else "$n", color = if (lit) c.ink else c.dim, style = Glidr.type.small)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
@@ -103,15 +107,20 @@ fun WelcomeCard(pairStep: Int, onDiscoverable: () -> Unit, onClose: () -> Unit) 
     val c = Glidr.colors
     var page by rememberSaveable { mutableIntStateOf(0) }
     val last = page == 1
-    Box(Modifier.fillMaxSize().background(Scrim).clickable(enabled = false) {}, contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().appear().background(Scrim).clickable(enabled = false) {}, contentAlignment = Alignment.Center) {
         Column(
-            Modifier.padding(Space.xl).widthIn(max = MAX_DIALOG_WIDTH).fillMaxWidth().clip(RoundedCornerShape(Radius.sheet)).background(c.s1)
-                .border(1.dp, c.line, RoundedCornerShape(Radius.sheet)).verticalScroll(rememberScrollState()).padding(20.dp),
+            Modifier.padding(Space.xl).widthIn(max = MAX_DIALOG_WIDTH).fillMaxWidth().appear(y = Space.xl, scale = 0.94f, fade = false)
+                .clip(RoundedCornerShape(Radius.sheet)).background(c.s1)
+                .border(1.dp, c.line, RoundedCornerShape(Radius.sheet)).animateContentSize(motionSpec(Spring.StiffnessMediumLow, 1f))
+                .verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {
-            Label(stringResource(if (last) R.string.gestures_title else R.string.welcome_title), color = c.text, style = Glidr.type.heading)
-            Label(stringResource(if (last) R.string.gestures_sub else R.string.welcome_sub), color = c.dim, style = Glidr.type.small)
-            if (last) GestureList() else PairGuide(pairStep, onDiscoverable)
+            // The second page comes in from the side; the buttons stay put.
+            Column(Modifier.enterFromSide(page, Space.xl), verticalArrangement = Arrangement.spacedBy(Space.md)) {
+                Label(stringResource(if (last) R.string.gestures_title else R.string.welcome_title), color = c.text, style = Glidr.type.heading)
+                Label(stringResource(if (last) R.string.gestures_sub else R.string.welcome_sub), color = c.dim, style = Glidr.type.small)
+                if (last) GestureList() else PairGuide(pairStep, onDiscoverable)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 PressBox(onClose, Modifier.weight(1f).height(52.dp)) { Label(stringResource(R.string.skip)) }
                 PressBox({ if (last) onClose() else page = 1 }, Modifier.weight(1f).height(52.dp), null, background = c.accent, border = false) {

@@ -2,16 +2,20 @@ package com.yashraj.glidr.ui
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -42,9 +46,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -104,7 +107,6 @@ fun RootScreen(
     var replayWelcome by rememberSaveable { mutableStateOf(false) }
     var toastText by remember { mutableStateOf("") }
     var toastOn by remember { mutableStateOf(false) }
-    val toastAlpha by animateFloatAsState(if (toastOn) 1f else 0f, motionSpec(), label = "toast")
     val showWelcome = replayWelcome || (loaded && !s.onboarded)
     val connectedText = stringResource(R.string.notif_connected, host?.name ?: stringResource(R.string.your_pc))
 
@@ -161,7 +163,8 @@ fun RootScreen(
 
     BoxWithConstraints(Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.safeDrawing)) {
         val compact = maxHeight < COMPACT_HEIGHT
-        when (Page.entries[page]) {
+        // Settings comes in from the right and Back brings the main screen in from the left.
+        Box(Modifier.fillMaxSize().enterFromSide(if (page == Page.Settings.ordinal) 1 else 0, Space.xl)) { when (Page.entries[page]) {
             Page.Settings -> SettingsScreen(
                 s, companion, conn == ConnectionState.Connected,
                 { done -> vm.engine.runOnPc(companionInstallCommand(COMPANION_DOWNLOAD_URL), done) },
@@ -191,7 +194,7 @@ fun RootScreen(
                     updateWaiting = update is UpdateState.Available,
                 )
                 Box(Modifier.weight(1f).fillMaxWidth()) {
-                    when {
+                    Box(Modifier.fillMaxSize().enterFromSide(page, Space.xl)) { when {
                         keyboardOnly -> Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.BottomCenter) {
                             KeyboardSheet(vm.engine, s, vm.stt, hasMic, onRequestMic)
                         }
@@ -206,9 +209,11 @@ fun RootScreen(
                             )
                             Gap(Space.md)
                             // No room for the extra row in landscape, and the open keyboard already has these keys.
-                            if (s.quickKeys && !compact && !kb) {
-                                QuickKeys(vm.engine, s)
-                                Gap(Space.md)
+                            Reveal(s.quickKeys && !compact && !kb) {
+                                Column {
+                                    QuickKeys(vm.engine, s)
+                                    Gap(Space.md)
+                                }
                             }
                             MouseButtons(vm.engine, s)
                         }
@@ -221,10 +226,10 @@ fun RootScreen(
                             ),
                             compact,
                         )
-                    }
-                    if (toastAlpha > 0.01f) Box(Modifier.align(Alignment.TopCenter).padding(top = Space.sm).alpha(toastAlpha)) { Toast(toastText) }
+                    } }
+                    Presence(toastOn, Modifier.align(Alignment.TopCenter).padding(top = Space.sm), fromAbove = true) { Toast(toastText) }
                 }
-                AnimatedVisibility(kb && page == Page.Pad.ordinal && !compact) { KeyboardSheet(vm.engine, s, vm.stt, hasMic, onRequestMic) }
+                Reveal(kb && page == Page.Pad.ordinal && !compact) { KeyboardSheet(vm.engine, s, vm.stt, hasMic, onRequestMic) }
                 Dock(
                     current = page,
                     kbOn = kb,
@@ -235,7 +240,7 @@ fun RootScreen(
                     onKb = { page = Page.Pad.ordinal; kb = !kb },
                 )
             }
-        }
+        } }
 
         devices?.let { list ->
             DeviceSheet(
@@ -284,17 +289,28 @@ private fun Toast(text: String) {
 private fun StatusDot(state: ConnectionState?) {
     val c = Glidr.colors
     val busy = state == ConnectionState.Connecting || state == ConnectionState.Reconnecting || state == ConnectionState.Registering
-    val pulse by rememberInfiniteTransition(label = "dot").animateFloat(
-        initialValue = 0.3f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "dotAlpha",
+    // Only while there is something to pulse about: an idle infinite transition still asks for every frame.
+    val pulse = if (busy && !LocalReduceMotion.current) {
+        rememberInfiniteTransition(label = "dot").animateFloat(
+            initialValue = 0.3f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "dotAlpha",
+        )
+    } else null
+    val color by animateColorAsState(
+        when (state) {
+            ConnectionState.Connected, ConnectionState.Connecting, ConnectionState.Reconnecting, ConnectionState.Registering -> c.accent
+            ConnectionState.BluetoothOff, ConnectionState.Unsupported, ConnectionState.Failed, null -> c.danger
+            ConnectionState.Ready -> c.dim
+        },
+        settleSpec(Spring.StiffnessMediumLow), label = "dotColor",
     )
-    val alpha = if (busy && !LocalReduceMotion.current) pulse else if (busy) 0.6f else 1f
-    val color = when (state) {
-        ConnectionState.Connected, ConnectionState.Connecting, ConnectionState.Reconnecting, ConnectionState.Registering -> c.accent
-        ConnectionState.BluetoothOff, ConnectionState.Unsupported, ConnectionState.Failed, null -> c.danger
-        ConnectionState.Ready -> c.dim
-    }
-    Box(Modifier.size(8.dp).alpha(alpha).clip(CircleShape).background(color))
+    Box(
+        Modifier.size(8.dp)
+            // A bigger bounce when the link comes up or drops.
+            .popOnChange(state == ConnectionState.Connected, from = 2f)
+            .graphicsLayer { alpha = pulse?.value ?: if (busy) 0.6f else 1f }
+            .clip(CircleShape).background(color),
+    )
 }
 
 @Composable
@@ -307,9 +323,13 @@ private fun TopBar(
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically,
     ) {
         PressBox(onPill, Modifier.height(48.dp), stringResource(R.string.connection_status, label), RoundedCornerShape(Radius.card)) {
-            Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md)) {
+            // The pill stretches to the new text, which rises into place.
+            Row(
+                Modifier.animateContentSize(motionSpec(Spring.StiffnessMediumLow, 0.8f)).padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md),
+            ) {
                 StatusDot(state)
-                Label(label)
+                Label(label, Modifier.enterOnChange(label, y = Space.sm), maxLines = 1)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
@@ -325,17 +345,23 @@ private fun Dock(current: Int, kbOn: Boolean, compact: Boolean, onPad: () -> Uni
     val c = Glidr.colors
     val h = if (compact) 56.dp else 64.dp
     val outer = h / 2
+    val kbBg by animateColorAsState(if (kbOn) c.text else c.s2, settleSpec(), label = "kbBg")
+    val kbFg by animateColorAsState(if (kbOn) c.bg else c.text, settleSpec(), label = "kbFg")
+    // The accent pill slides between the tabs. Page.Pad, Media and Present are the first three ordinals.
+    val position = animateFloatAsState(current.coerceAtMost(Page.Present.ordinal).toFloat(), motionSpec(Spring.StiffnessMediumLow, 0.8f), label = "dockPill")
     Row(
         Modifier.fillMaxWidth().padding(horizontal = Space.lg, vertical = if (compact) Space.sm else Space.lg).height(h),
         horizontalArrangement = Arrangement.spacedBy(Space.sm),
     ) {
-        Row(Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(outer)).background(c.s2).border(1.dp, c.line, RoundedCornerShape(outer)).padding(Space.xs)) {
-            DockTab(Modifier.weight(1f), stringResource(R.string.pad), Ico.Pad, current == Page.Pad.ordinal, outer - Space.xs, onPad)
-            DockTab(Modifier.weight(1f), stringResource(R.string.media), Ico.Media, current == Page.Media.ordinal, outer - Space.xs, onMedia)
-            DockTab(Modifier.weight(1f), stringResource(R.string.present), Ico.Present, current == Page.Present.ordinal, outer - Space.xs, onPresent)
+        Box(Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(outer)).background(c.s2).border(1.dp, c.line, RoundedCornerShape(outer)).padding(Space.xs)) {
+            Row(Modifier.fillMaxSize().slidingPill(position, 3, c.accent, outer - Space.xs)) {
+                DockTab(Modifier.weight(1f), stringResource(R.string.pad), Ico.Pad, current == Page.Pad.ordinal, outer - Space.xs, onPad)
+                DockTab(Modifier.weight(1f), stringResource(R.string.media), Ico.Media, current == Page.Media.ordinal, outer - Space.xs, onMedia)
+                DockTab(Modifier.weight(1f), stringResource(R.string.present), Ico.Present, current == Page.Present.ordinal, outer - Space.xs, onPresent)
+            }
         }
-        PressBox(onKb, Modifier.size(h), stringResource(R.string.keyboard), CircleShape, background = if (kbOn) c.text else c.s2) {
-            Icon(Ico.Keyboard, if (kbOn) c.bg else c.text)
+        PressBox(onKb, Modifier.size(h), stringResource(R.string.keyboard), CircleShape, background = kbBg) {
+            Icon(Ico.Keyboard, kbFg)
         }
     }
 }
@@ -343,14 +369,17 @@ private fun Dock(current: Int, kbOn: Boolean, compact: Boolean, onPad: () -> Uni
 @Composable
 private fun DockTab(modifier: Modifier, label: String, icon: Ico, on: Boolean, radius: Dp, onClick: () -> Unit) {
     val c = Glidr.colors
+    val fg by animateColorAsState(if (on) c.ink else c.dim, settleSpec(), label = "tab")
+    val src = remember { MutableInteractionSource() }
     Row(
-        modifier.fillMaxSize().clip(RoundedCornerShape(radius)).background(if (on) c.accent else Color.Transparent)
-            .selectable(selected = on, role = Role.Tab, onClick = onClick),
+        modifier.fillMaxSize().clip(RoundedCornerShape(radius))
+            .selectable(selected = on, interactionSource = src, indication = LocalIndication.current, role = Role.Tab, onClick = onClick)
+            .pressScale(src),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, if (on) c.ink else c.dim, 20.dp)
+        Box(Modifier.popOnChange(on, from = 0.7f)) { Icon(icon, fg, 20.dp) }
         Box(Modifier.size(Space.sm))
-        Label(label, color = if (on) c.ink else c.dim, style = Glidr.type.body, maxLines = 1)
+        Label(label, color = fg, style = Glidr.type.body, maxLines = 1)
     }
 }
 
@@ -360,9 +389,9 @@ private fun DeviceSheet(
     onPick: (PcDevice) -> Unit, onDisconnect: () -> Unit, onPair: () -> Unit, onBtSettings: () -> Unit, onClose: () -> Unit,
 ) {
     val c = Glidr.colors
-    BoxWithConstraints(Modifier.fillMaxSize().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.BottomCenter) {
+    BoxWithConstraints(Modifier.fillMaxSize().appear().background(Scrim).clickable(onClick = onClose), contentAlignment = Alignment.BottomCenter) {
         Column(
-            Modifier.widthIn(max = MAX_SHEET_WIDTH).fillMaxWidth().heightIn(max = maxHeight * 0.92f)
+            Modifier.widthIn(max = MAX_SHEET_WIDTH).fillMaxWidth().heightIn(max = maxHeight * 0.92f).slideUp()
                 .clip(RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet)).background(c.s1)
                 .clickable(enabled = false) {}.verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(Space.md),

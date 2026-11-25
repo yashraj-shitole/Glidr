@@ -12,16 +12,22 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.yashraj.glidr.ui.theme.LocalReduceMotion
@@ -130,14 +136,21 @@ fun Modifier.popOnChange(key: Any, from: Float = 0.8f): Modifier {
     }
 }
 
-/** One entrance when this first appears: for dialogs and sheets. Fades in, rising [y] and growing from [scale]. */
+/** Runs 0 to 1 once, when this first appears. */
 @Composable
-fun Modifier.appear(y: Dp = 0.dp, scale: Float = 1f, fade: Boolean = true): Modifier {
+private fun rememberEntrance(): Animatable<Float, *> {
     val reduce = LocalReduceMotion.current
     val progress = remember { Animatable(if (reduce) 1f else 0f) }
-    LaunchedEffect(Unit) {
-        progress.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow))
+    LaunchedEffect(progress) {
+        if (progress.value != 1f) progress.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow))
     }
+    return progress
+}
+
+/** The entrance of a dialog or its scrim: fades in (unless a parent already does), rising [y] and growing from [scale]. */
+@Composable
+fun Modifier.appear(y: Dp = 0.dp, scale: Float = 1f, fade: Boolean = true): Modifier {
+    val progress = rememberEntrance()
     return graphicsLayer {
         val p = progress.value
         if (p != 1f) {
@@ -150,7 +163,15 @@ fun Modifier.appear(y: Dp = 0.dp, scale: Float = 1f, fade: Boolean = true): Modi
     }
 }
 
-/** A block that unfolds into a column and folds away again, instead of jumping the rows below it. */
+/** A bottom sheet rising by its own height when it first appears. */
+@Composable
+fun Modifier.slideUp(): Modifier {
+    val progress = rememberEntrance()
+    // Never above its resting place: an overshoot would show the scrim under the sheet.
+    return graphicsLayer { translationY = (1f - progress.value).coerceAtLeast(0f) * size.height }
+}
+
+/** A block that unfolds and folds away again, instead of making the content around it jump. */
 @Composable
 fun Reveal(visible: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val reduce = LocalReduceMotion.current
@@ -158,7 +179,30 @@ fun Reveal(visible: Boolean, modifier: Modifier = Modifier, content: @Composable
     val fade = spring<Float>(stiffness = Spring.StiffnessMedium)
     AnimatedVisibility(
         visible, modifier,
-        enter = if (reduce) EnterTransition.None else expandVertically(size) + fadeIn(fade),
-        exit = if (reduce) ExitTransition.None else shrinkVertically(size) + fadeOut(fade),
+        enter = if (reduce) EnterTransition.None else expandVertically(size, expandFrom = Alignment.Top) + fadeIn(fade),
+        exit = if (reduce) ExitTransition.None else shrinkVertically(size, shrinkTowards = Alignment.Top) + fadeOut(fade),
+    ) { content() }
+}
+
+/**
+ * Something floating over the screen (a toast, a chip, a hint) fading and growing in and out in place. With
+ * [fromAbove] it also drops in from above.
+ */
+@Composable
+fun Presence(visible: Boolean, modifier: Modifier = Modifier, fromAbove: Boolean = false, content: @Composable () -> Unit) {
+    val reduce = LocalReduceMotion.current
+    val grow = spring<Float>(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)
+    val slide = spring(0.7f, Spring.StiffnessMediumLow, IntOffset.VisibilityThreshold)
+    val fade = spring<Float>(stiffness = Spring.StiffnessMediumLow)
+    var enter = fadeIn(fade) + scaleIn(grow, initialScale = 0.9f)
+    var exit = fadeOut(fade) + scaleOut(grow, targetScale = 0.9f)
+    if (fromAbove) {
+        enter += slideInVertically(slide) { -it }
+        exit += slideOutVertically(slide) { -it }
+    }
+    AnimatedVisibility(
+        visible, modifier,
+        enter = if (reduce) EnterTransition.None else enter,
+        exit = if (reduce) ExitTransition.None else exit,
     ) { content() }
 }
