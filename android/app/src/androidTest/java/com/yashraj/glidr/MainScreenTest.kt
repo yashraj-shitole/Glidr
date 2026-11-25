@@ -55,6 +55,21 @@ class MainScreenTest {
     }
 
     @Test
+    fun keyboardOpensAndSwitchesTabs() {
+        rule.onNodeWithContentDescription("Keyboard").performClick()
+        rule.onNodeWithText("Esc").assertExists()
+        rule.onNodeWithText("Shortcuts").performClick()
+        rule.onNodeWithText("Task view").assertExists()
+        rule.onNodeWithText("More").performClick()
+        rule.onNodeWithText("F12").assertExists()
+        rule.onNodeWithText("Keys").performClick()
+        rule.onNodeWithText("123").performClick()
+        rule.onNodeWithText("ABC").assertExists()
+        rule.onNodeWithContentDescription("Keyboard").performClick()
+        rule.onNodeWithText("Esc").assertDoesNotExist()
+    }
+
+    @Test
     fun padShowsQuickKeys() {
         rule.onNodeWithText("Ctrl").assertExists()
         rule.onNodeWithText("Paste").assertExists()

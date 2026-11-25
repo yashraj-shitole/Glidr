@@ -113,7 +113,8 @@ fun Modifier.enterOnChange(key: Any, x: Dp = 0.dp, y: Dp = 0.dp): Modifier {
 @Composable
 fun Modifier.enterFromSide(index: Int, distance: Dp): Modifier {
     val direction = remember { floatArrayOf(1f) }
-    val progress = rememberChange(index, Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow) { from ->
+    // Stiffer than enterOnChange: this is navigation, so the new screen must be readable almost at once.
+    val progress = rememberChange(index, Spring.DampingRatioNoBouncy, Spring.StiffnessMedium) { from ->
         direction[0] = if (index > from) 1f else -1f
     }
     return graphicsLayer {

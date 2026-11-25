@@ -94,11 +94,12 @@ fun PressBox(
     val src = source ?: remember { MutableInteractionSource() }
     Box(
         modifier
+            // Ahead of the shrink, so the touch target keeps its size while the button is drawn smaller.
+            .clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onClick)
             .pressScale(src, pressedScale)
             .clip(shape)
             .background(background, shape)
             .then(if (border) Modifier.border(1.dp, Glidr.colors.line, shape) else Modifier)
-            .clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onClick)
             .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
         contentAlignment = Alignment.Center,
     ) { content() }

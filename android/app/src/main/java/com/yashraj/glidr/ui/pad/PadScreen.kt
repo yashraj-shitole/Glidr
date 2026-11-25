@@ -403,8 +403,7 @@ fun MouseButtons(engine: HidEngine, settings: Settings, modifier: Modifier = Mod
             var down by remember { mutableStateOf(false) }
             val bg by animateColorAsState(if (down) Glidr.colors.s3 else Glidr.colors.s2, if (down) snap() else settleSpec(), label = "mouseBg")
             Box(
-                Modifier.weight(w).fillMaxHeight().pressScale(down, PressScale.CARD).clip(RoundedCornerShape(Radius.control)).background(bg)
-                    .border(1.dp, Glidr.colors.line, RoundedCornerShape(Radius.control))
+                Modifier.weight(w).fillMaxHeight()
                     .semantics {
                         role = Role.Button
                         contentDescription = desc
@@ -420,7 +419,10 @@ fun MouseButtons(engine: HidEngine, settings: Settings, modifier: Modifier = Mod
                             down = false
                             engine.buttonUp(mask)
                         })
-                    },
+                    }
+                    // After the touch handling: a shrinking hit area would drop a held button under a thumb near its edge.
+                    .pressScale(down, PressScale.CARD).clip(RoundedCornerShape(Radius.control)).background(bg)
+                    .border(1.dp, Glidr.colors.line, RoundedCornerShape(Radius.control)),
                 contentAlignment = Alignment.Center,
             ) {
                 if (i == 1) {

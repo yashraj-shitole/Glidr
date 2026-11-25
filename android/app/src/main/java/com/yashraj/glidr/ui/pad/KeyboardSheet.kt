@@ -215,7 +215,7 @@ fun KeyboardSheet(
         }
 
         // Each tab's content comes in from the side of the tab that was tapped.
-        Box(Modifier.enterFromSide(tab, Space.xl)) { when (Tab.entries[tab]) {
+        Box(Modifier.fillMaxWidth().enterFromSide(tab, Space.xl)) { when (Tab.entries[tab]) {
             Tab.Keys -> Column(verticalArrangement = Arrangement.spacedBy(Space.key)) {
                 ModifierRow()
                 // Switching between letters and symbols fades the new layer up.
@@ -373,9 +373,7 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
             var micDown by remember { mutableStateOf(false) }
             val micBg by animateColorAsState(if (listening) c.accent else c.s3, settleSpec(), label = "micBg")
             Box(
-                Modifier.size(64.dp).pressScale(micDown)
-                    .graphicsLayer { val s = 1f + 0.12f * swell.value; scaleX = s; scaleY = s }
-                    .clip(CircleShape).background(micBg)
+                Modifier.size(64.dp)
                     .semantics {
                         role = Role.Button
                         contentDescription = dictate
@@ -396,7 +394,11 @@ private fun VoicePanel(engine: HidEngine, settings: Settings, stt: SttEngine, ha
                             val held = SystemClock.uptimeMillis() - t0
                             if (up == null || wasListening || held >= HOLD_TO_TALK_MS) stt.stop()
                         }
-                    },
+                    }
+                    // After the touch handling: shrinking must not move the edge under a finger that is holding to talk.
+                    .pressScale(micDown)
+                    .graphicsLayer { val s = 1f + 0.12f * swell.value; scaleX = s; scaleY = s }
+                    .clip(CircleShape).background(micBg),
                 contentAlignment = Alignment.Center,
             ) { Icon(Ico.Mic, if (listening) c.ink else c.text, 24.dp) }
             Box(Modifier.size(Space.xl))
@@ -482,7 +484,7 @@ private fun Key(
     val fg by animateColorAsState(if (on || go) c.ink else if (fn) c.dim else c.text, settleSpec(), label = "keyFg")
     val name = desc ?: label
     Box(
-        modifier.height(KEY_HEIGHT).pressScale(pressed, PressScale.KEY).clip(RoundedCornerShape(Radius.key)).background(bg)
+        modifier.height(KEY_HEIGHT)
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = name
@@ -553,7 +555,9 @@ private fun Key(
                         pressed = false
                     }
                 }
-            },
+            }
+            // Drawn smaller after the touch handling, so the hit area and the caret drag distance do not change.
+            .pressScale(pressed, PressScale.KEY).clip(RoundedCornerShape(Radius.key)).background(bg),
         contentAlignment = Alignment.Center,
     ) { Label(label, color = fg, style = if (fn && label.length > 1) Glidr.type.small else if (fn) Glidr.type.body.copy(fontSize = 18.sp) else Glidr.type.body, maxLines = 1) }
 }
