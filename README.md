@@ -45,7 +45,8 @@ it over an older version, and uninstalling resets your Glidr settings.
 * Runs as a foreground service with an ongoing notification (Pause / Nudge now / Stop), promoted to an Android 16
   Live Update. Auto-reconnect, forget PC.
 * Midnight (dark) and Paper (light) themes, four accents, haptics with adjustable intensity, Reduce motion.
-* Update banner when a newer release is on GitHub (off when installed from Google Play).
+* In-app updates: when a newer release is on GitHub a popup asks whether to update, downloads the APK and hands it to
+  Android's installer (off when installed from Google Play).
 
 ### PC companion (Windows tray, optional)
 * Reads the Windows media session (Spotify, browsers, Media Player...) and sends the playing track to the phone over Bluetooth.
@@ -54,8 +55,15 @@ it over an older version, and uninstalling resets your Glidr settings.
 
 ## Updates
 
-The phone (Settings > Updates) and the companion ask GitHub for the latest release of **yashraj-shitole/Glidr**.
-A newer version shows a banner or tray balloon with a Download link; nothing installs itself.
+The phone and the companion ask GitHub for the latest release of **yashraj-shitole/Glidr**.
+
+* **Phone:** checks when the app starts, and again when you return to it after six hours. A newer version brings up a
+  popup. **Update** downloads the APK, checks it against GitHub's checksum and opens Android's install prompt; the
+  first time, Android also asks you to allow Glidr to install apps. Glidr closes while it installs. **Later** hides
+  the popup for that version for a day; the banner in Settings stays. Nothing installs without your confirmation.
+* **PC:** a tray balloon with a Download link.
+
+The APK of a new release must be signed with the same key as the installed one, or Android refuses the update.
 
 To publish: bump `versionName`/`versionCode` in `android/app/build.gradle.kts` and `<Version>` in
 `windows/GlidrCompanion/GlidrCompanion.csproj`, then create a GitHub release tagged `vX.Y.Z` with the `.apk` and

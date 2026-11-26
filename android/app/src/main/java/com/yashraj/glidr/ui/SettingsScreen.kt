@@ -71,7 +71,7 @@ private val ACCENT_NAME_RES = listOf(R.string.accent_volt, R.string.accent_ember
 @Composable
 fun SettingsScreen(
     s: Settings, companion: CompanionState, pcConnected: Boolean, onInstallOnPc: (onDone: () -> Unit) -> Boolean, update: ((Settings) -> Settings) -> Unit, onForget: () -> Unit, onBack: () -> Unit,
-    appVersion: String, updateState: UpdateState, onCheckUpdate: () -> Unit, onOpenUpdate: (String) -> Unit,
+    appVersion: String, updateState: UpdateState, onCheckUpdate: () -> Unit, onUpdate: (Release) -> Unit,
     onReset: () -> Unit, onShowWelcome: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -91,7 +91,7 @@ fun SettingsScreen(
                 Label(stringResource(R.string.settings), color = c.text, style = Glidr.type.title)
             }
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Space.lg).padding(bottom = 32.dp)) {
-                (updateState as? UpdateState.Available)?.let { UpdateBanner(it.release, onOpenUpdate) }
+                (updateState as? UpdateState.Available)?.let { UpdateBanner(it.release, onUpdate) }
                 Section(stringResource(R.string.pointer)) {
                     SliderRow(stringResource(R.string.sensitivity), "%.1f×".format(s.sensitivity)) {
                         Slider(s.sensitivity, 0.5f..3f, { v -> if (v != s.sensitivity) tick(); update { it.copy(sensitivity = v) } }, stringResource(R.string.sensitivity), tickEvery = 0.5f)
@@ -301,8 +301,9 @@ private enum class InstallPhase { Idle, Typing, Sent, Failed }
 
 /** Shown at the top of Settings while a newer release exists. */
 @Composable
-private fun UpdateBanner(release: Release, onOpen: (String) -> Unit) {
+private fun UpdateBanner(release: Release, onUpdate: (Release) -> Unit) {
     val c = Glidr.colors
+    val action = stringResource(if (release.hasApk) R.string.update_now else R.string.download)
     Row(
         Modifier.fillMaxWidth().padding(top = Space.sm).clip(RoundedCornerShape(Radius.card)).background(c.s1)
             .border(1.dp, c.accent, RoundedCornerShape(Radius.card)).padding(Space.lg),
@@ -310,10 +311,10 @@ private fun UpdateBanner(release: Release, onOpen: (String) -> Unit) {
     ) {
         Column(Modifier.weight(1f).padding(end = Space.md)) {
             Label(stringResource(R.string.update_available, release.version), color = c.text, style = Glidr.type.body)
-            Label(stringResource(R.string.update_available_sub), color = c.dim, style = Glidr.type.small)
+            Label(stringResource(if (release.hasApk) R.string.update_available_sub else R.string.update_download_sub), color = c.dim, style = Glidr.type.small)
         }
-        PressBox({ onOpen(release.downloadUrl) }, Modifier.height(48.dp), stringResource(R.string.download), RoundedCornerShape(Radius.card), background = c.accent, border = false) {
-            Label(stringResource(R.string.download), Modifier.padding(horizontal = 20.dp), c.ink)
+        PressBox({ onUpdate(release) }, Modifier.height(48.dp), action, RoundedCornerShape(Radius.card), background = c.accent, border = false) {
+            Label(action, Modifier.padding(horizontal = 20.dp), c.ink)
         }
     }
 }

@@ -7,6 +7,7 @@ import com.yashraj.glidr.hid.HidEngine
 import com.yashraj.glidr.hid.HidTransport
 import com.yashraj.glidr.companion.CompanionLink
 import com.yashraj.glidr.service.KeepAwake
+import com.yashraj.glidr.update.Updater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,6 +24,8 @@ class GlidrApp : Application() {
     val keepAwake = KeepAwake()
     lateinit var companion: CompanionLink
         private set
+    lateinit var updater: Updater
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -30,5 +33,6 @@ class GlidrApp : Application() {
         transport = BluetoothHidTransport(this)
         engine = HidEngine(transport, scope)
         companion = CompanionLink(this, scope)
+        updater = Updater(this, scope)
     }
 }

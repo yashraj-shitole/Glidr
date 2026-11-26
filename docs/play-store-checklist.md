@@ -6,7 +6,7 @@ What the code already satisfies, and what only you can do in Play Console.
 - `targetSdk` 37, `compileSdk` 37 (above Play's current target requirement), `minSdk` 29.
 - Release builds are shrunk with R8; build the upload bundle with `gradlew.bat bundleRelease` (from `android/`).
 - Only permissions the app uses: `BLUETOOTH_CONNECT`, legacy `BLUETOOTH` / `BLUETOOTH_ADMIN` (maxSdk 30), `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_CONNECTED_DEVICE`, `POST_NOTIFICATIONS`, `POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `RECORD_AUDIO` (Voice tab only), `VIBRATE`, `INTERNET`.
-  No location, contacts, storage or camera permission. `INTERNET` is used only by the update check, which asks
+  No location, contacts, storage or camera permission. `INTERNET` is used only by the updater, which asks
   GitHub for the latest release; it is switched off automatically when Google Play installed the app (Play delivers
   updates and does not allow pointing users elsewhere).
 - Runtime permissions are requested in context (Bluetooth when the user taps the connection pill, notifications when they turn keep awake on, microphone when they tap the mic in the Voice tab), and the app still works when notifications are denied.
@@ -15,6 +15,11 @@ What the code already satisfies, and what only you can do in Play Console.
 - No ads, analytics, accounts or network access, so nothing leaves the device except HID input to the PC the user picks.
 - `<uses-feature>` for Bluetooth and touchscreen so incompatible devices are filtered out.
 - Fonts: Geist and Geist Mono (SIL Open Font License).
+
+## Before building a Play bundle
+- **Remove `REQUEST_INSTALL_PACKAGES` from `AndroidManifest.xml`.** It is there for the in-app updater of the GitHub
+  APK. Google Play does not allow an app to update itself and restricts this permission, so a bundle that carries it
+  is likely to be rejected. The updater is already off for Play installs.
 
 ## You must do in Play Console
 1. **Signing**: create an upload keystore and enrol in Play App Signing. Never commit the keystore.

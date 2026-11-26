@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +39,9 @@ data class Settings(
     val lastHost: String? = null,
     /** The first-run welcome card has been dismissed. */
     val onboarded: Boolean = false,
+    /** The version whose update popup was put off with "Later", and until when (epoch ms). */
+    val updateSnoozedVersion: String? = null,
+    val updateSnoozedUntil: Long = 0,
 ) {
     companion object {
         val NUDGE_SECONDS = intArrayOf(15, 30, 60, 120)
@@ -70,6 +74,8 @@ class SettingsRepository(private val context: Context) {
         val nudgeRoam = booleanPreferencesKey("nudge_roam")
         val host = stringPreferencesKey("host")
         val onboarded = booleanPreferencesKey("onboarded")
+        val snoozedVersion = stringPreferencesKey("update_snoozed_version")
+        val snoozedUntil = longPreferencesKey("update_snoozed_until")
     }
 
     val flow: Flow<Settings> = context.store.data.map { map(it) }
@@ -100,6 +106,8 @@ class SettingsRepository(private val context: Context) {
             nudgeRoam = p[K.nudgeRoam] ?: d.nudgeRoam,
             lastHost = p[K.host],
             onboarded = p[K.onboarded] ?: d.onboarded,
+            updateSnoozedVersion = p[K.snoozedVersion],
+            updateSnoozedUntil = p[K.snoozedUntil] ?: d.updateSnoozedUntil,
         )
     }
 
@@ -130,6 +138,9 @@ class SettingsRepository(private val context: Context) {
             p[K.onboarded] = s.onboarded
             val h = s.lastHost
             if (h == null) p.remove(K.host) else p[K.host] = h
+            val v = s.updateSnoozedVersion
+            if (v == null) p.remove(K.snoozedVersion) else p[K.snoozedVersion] = v
+            p[K.snoozedUntil] = s.updateSnoozedUntil
         }
     }
 

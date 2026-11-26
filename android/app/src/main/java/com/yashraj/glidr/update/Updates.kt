@@ -11,7 +11,11 @@ import java.net.URL
 /** GitHub repo whose releases carry the APK and the companion .exe, tagged v1.2.0 and so on. */
 const val RELEASES_REPO = "yashraj-shitole/Glidr"
 
-data class Release(val version: String, val downloadUrl: String, val pageUrl: String)
+/** [sha256] is GitHub's checksum of the APK, when it gave one. */
+data class Release(val version: String, val downloadUrl: String, val pageUrl: String, val sha256: String? = null) {
+    /** False when the release has no APK and [downloadUrl] is only its web page. */
+    val hasApk: Boolean get() = downloadUrl.endsWith(".apk", ignoreCase = true)
+}
 
 sealed interface UpdateState {
     data object Idle : UpdateState
@@ -48,6 +52,21 @@ object Versions {
 
     /** Only links into GitHub are opened, whether they came from GitHub's API or from the PC companion. */
     fun isTrustedLink(url: String): Boolean = url.startsWith("https://github.com/")
+
+    /** The hex part of GitHub's "sha256:..." asset digest, or null if it is missing or not that. */
+    fun parseDigest(digest: String): String? =
+        digest.removePrefix("sha256:").lowercase()
+            .takeIf { digest.startsWith("sha256:") && it.length == 64 && it.all { c -> c in '0'..'9' || c in 'a'..'f' } }
+}
+
+/** When to put the update popup on screen. */
+object UpdatePrompt {
+    /** How long "Later" keeps the popup away for the same version. */
+    const val SNOOZE_MS = 24 * 60 * 60 * 1000L
+
+    /** A newer version than the one put off asks at once. A clock set back does not stretch the wait. */
+    fun shouldAsk(version: String, snoozedVersion: String?, snoozedUntil: Long, now: Long): Boolean =
+        version != snoozedVersion || now >= snoozedUntil || snoozedUntil - now > SNOOZE_MS
 }
 
 object GitHubReleases {
@@ -68,11 +87,11 @@ object GitHubReleases {
             require(version.isNotBlank()) { "release has no tag" }
             val page = json.optString("html_url").takeIf(Versions::isTrustedLink) ?: "https://github.com/$repo/releases/latest"
             val arr = json.optJSONArray("assets")
-            val assets = (0 until (arr?.length() ?: 0)).map {
-                val a = arr!!.getJSONObject(it)
-                a.optString("name") to a.optString("browser_download_url")
-            }.filter { Versions.isTrustedLink(it.second) }
-            Release(version, Versions.pickAsset(assets, ".apk") ?: page, page)
+            val assets = (0 until (arr?.length() ?: 0)).map { arr!!.getJSONObject(it) }
+                .filter { Versions.isTrustedLink(it.optString("browser_download_url")) }
+            val apk = Versions.pickAsset(assets.map { it.optString("name") to it.optString("browser_download_url") }, ".apk")
+            val digest = assets.firstOrNull { it.optString("browser_download_url") == apk }?.optString("digest")
+            Release(version, apk ?: page, page, digest?.let(Versions::parseDigest))
         } finally {
             conn.disconnect()
         }

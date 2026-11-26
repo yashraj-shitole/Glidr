@@ -57,6 +57,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yashraj.glidr.R
 import com.yashraj.glidr.companion.COMPANION_DOWNLOAD_URL
@@ -72,6 +73,7 @@ import com.yashraj.glidr.ui.theme.LocalReduceMotion
 import com.yashraj.glidr.ui.theme.MAX_SHEET_WIDTH
 import com.yashraj.glidr.ui.theme.Radius
 import com.yashraj.glidr.ui.theme.Space
+import com.yashraj.glidr.update.InstallStep
 import com.yashraj.glidr.update.UpdateState
 import kotlinx.coroutines.delay
 
@@ -100,7 +102,10 @@ fun RootScreen(
     val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
     val companion by vm.companionState.collectAsStateWithLifecycle()
     val update by vm.update.collectAsStateWithLifecycle()
+    val updatePrompt by vm.updatePrompt.collectAsStateWithLifecycle()
+    val install by vm.install.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
+    val openLink: (String) -> Unit = { url -> runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } }
     var page by rememberSaveable { mutableIntStateOf(Page.Pad.ordinal) }
     var kb by rememberSaveable { mutableStateOf(false) }
     var devices by remember { mutableStateOf<List<PcDevice>?>(null) }
@@ -153,6 +158,16 @@ fun RootScreen(
         }
     }
 
+    // Look for a new release again when the app is brought back.
+    LifecycleResumeEffect(Unit) {
+        vm.onForeground()
+        onPauseOrDispose {}
+    }
+    // Android wants its own confirmation before installing: open it as soon as it is ready.
+    LaunchedEffect(install?.step) {
+        if (install?.step is InstallStep.Confirm) vm.takeInstallPrompt()?.let { runCatching { ctx.startActivity(it) } }
+    }
+
     BackHandler(enabled = showWelcome || devices != null || page != Page.Pad.ordinal) {
         when {
             showWelcome -> { replayWelcome = false; vm.update { it.copy(onboarded = true) } }
@@ -169,8 +184,8 @@ fun RootScreen(
                 s, companion, conn == ConnectionState.Connected,
                 { done -> vm.engine.runOnPc(companionInstallCommand(COMPANION_DOWNLOAD_URL), done) },
                 vm::update, vm::forgetPc, { page = Page.Pad.ordinal },
-                appVersion = vm.appVersion, updateState = update, onCheckUpdate = vm::checkForUpdates,
-                onOpenUpdate = { url -> runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
+                appVersion = vm.appVersion, updateState = update, onCheckUpdate = { vm.checkForUpdates() },
+                onUpdate = { if (!vm.installUpdate(it)) openLink(it.downloadUrl) },
                 onReset = vm::resetSettings, onShowWelcome = { replayWelcome = true },
             )
             else -> Column(Modifier.fillMaxSize()) {
@@ -255,6 +270,24 @@ fun RootScreen(
 
         if (showWelcome) {
             WelcomeCard(pairStep, discoverable) { replayWelcome = false; vm.update { it.copy(onboarded = true) } }
+        }
+
+        // The popup stays off the welcome card, the PC picker and the presenter screen; an update already under way
+        // is always shown.
+        val asking = updatePrompt?.takeIf { loaded && !showWelcome && devices == null && page != Page.Present.ordinal }
+        (install?.release ?: asking)?.let { release ->
+            UpdateDialog(
+                release.version, vm.appVersion, install?.step,
+                onUpdate = {
+                    if (!vm.installUpdate(release)) {
+                        openLink(release.downloadUrl)
+                        vm.postponeUpdate(release.version)
+                    }
+                },
+                onInstall = { (install?.step as? InstallStep.Confirm)?.let { runCatching { ctx.startActivity(it.intent) } } },
+                onLater = { vm.postponeUpdate(release.version) },
+                onOpenPage = { openLink(release.pageUrl) },
+            )
         }
     }
 }

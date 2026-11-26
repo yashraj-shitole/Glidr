@@ -10,8 +10,11 @@
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <!-- Only to ask GitHub whether a newer release exists (Settings > Updates). -->
+    <!-- Only to ask GitHub whether a newer release exists and to download it when the user taps Update. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- To hand that download to Android's installer, which asks the user to confirm.
+         Google Play does not allow this for self-updates: remove it before building a Play bundle. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -65,6 +68,11 @@
             android:name=".service.GlidrService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+
+        <!-- Android reports here how an in-app update install went. -->
+        <receiver
+            android:name=".update.InstallReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

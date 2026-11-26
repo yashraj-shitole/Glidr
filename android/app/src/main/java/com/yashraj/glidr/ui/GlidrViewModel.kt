@@ -1,6 +1,8 @@
 package com.yashraj.glidr.ui
 
 import android.app.Application
+import android.content.Intent
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.yashraj.glidr.GlidrApp
@@ -12,6 +14,8 @@ import com.yashraj.glidr.hid.PcDevice
 import com.yashraj.glidr.service.GlidrService
 import com.yashraj.glidr.update.GitHubReleases
 import com.yashraj.glidr.update.RELEASES_REPO
+import com.yashraj.glidr.update.Release
+import com.yashraj.glidr.update.UpdatePrompt
 import com.yashraj.glidr.update.UpdateState
 import com.yashraj.glidr.update.Versions
 import com.yashraj.glidr.update.appVersion
@@ -24,6 +28,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+/** How old the last update check may be before coming back to the app asks again. */
+private const val RECHECK_MS = 6 * 60 * 60 * 1000L
 
 class GlidrViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as GlidrApp
@@ -58,14 +65,59 @@ class GlidrViewModel(application: Application) : AndroidViewModel(application) {
         }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, UpdateState.Idle)
 
-    fun checkForUpdates() {
-        if (fromStore || checked.value == UpdateState.Checking) return
-        checked.value = UpdateState.Checking
-        viewModelScope.launch { checked.value = GitHubReleases.check(RELEASES_REPO, appVersion) }
+    private var checking = false
+    private var checkedAt = 0L
+
+    /** Moves each time the app comes forward, so a "Later" that has run out is noticed. */
+    private val foregrounded = MutableStateFlow(0)
+
+    /** A [quiet] check keeps what is on screen until it has something new to say. */
+    fun checkForUpdates(quiet: Boolean = false) {
+        if (fromStore || checking) return
+        checking = true
+        if (!quiet) checked.value = UpdateState.Checking
+        viewModelScope.launch {
+            val result = GitHubReleases.check(RELEASES_REPO, appVersion)
+            if (!quiet || result !is UpdateState.Failed) checked.value = result
+            if (result !is UpdateState.Failed) checkedAt = SystemClock.elapsedRealtime()
+            checking = false
+        }
     }
 
+    /** The app is on screen again: look for a new release if the last answer is old or never came. */
+    fun onForeground() {
+        foregrounded.value++
+        if (checkedAt == 0L || SystemClock.elapsedRealtime() - checkedAt > RECHECK_MS) checkForUpdates(quiet = true)
+    }
+
+    /** The release to ask about in a popup, or null. */
+    val updatePrompt: StateFlow<Release?> = combine(update, app.settings.flow, foregrounded) { state, s, _ ->
+        (state as? UpdateState.Available)?.release?.takeIf {
+            UpdatePrompt.shouldAsk(it.version, s.updateSnoozedVersion, s.updateSnoozedUntil, System.currentTimeMillis())
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** The update being downloaded or installed, or null. */
+    val install = app.updater.state
+
+    /** Downloads and installs inside the app; false when the release has no APK, so the caller should open its page. */
+    fun installUpdate(release: Release): Boolean {
+        if (!release.hasApk) return false
+        app.updater.install(release, "Glidr-Android/$appVersion")
+        return true
+    }
+
+    /** "Later": drop any download and leave the popup for this version alone for a day. */
+    fun postponeUpdate(version: String) {
+        app.updater.cancel()
+        update { it.copy(updateSnoozedVersion = version, updateSnoozedUntil = System.currentTimeMillis() + UpdatePrompt.SNOOZE_MS) }
+    }
+
+    /** Android's install prompt, handed out once so a recreated screen does not open it again. */
+    fun takeInstallPrompt(): Intent? = app.updater.takeConfirmation()
+
     init {
-        checkForUpdates() // once per app start
+        checkForUpdates() // at app start
     }
 
     init {
