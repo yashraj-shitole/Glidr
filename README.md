@@ -6,24 +6,29 @@ keyboard and remote) and [Glidr Screen](https://github.com/yashraj-shitole/Glidr
 Plain HTML, CSS and JavaScript. No build step, no framework. Open `index.html` in a browser, or serve the folder with any
 static host (GitHub Pages, Vercel, Netlify).
 
-## What is in it
+## The idea: this page has a remote
 
-* A scroll-driven 3D story (three.js r128, vendored in `js/three.min.js`): a phone, a monitor, the Glidr cursor, Bluetooth
-  range rings, a data stream and a globe. The phone and PC screens are live canvas textures drawn from the apps' own palette.
-* Same design system as the apps: Midnight / Paper themes, four accents (Volt, Ember, Sky, Rose), Geist and Geist Mono,
-  dot grid, spring motion. Theme and accent can be switched on the page and the 3D scene follows.
-* Interactive demos: trackpad glow, shortcut presses, typing in any language, monitor picker, fps trace.
-* Honors `prefers-reduced-motion` (no scroll choreography, no continuous animation) and falls back to a calm gradient when
-  WebGL is unavailable.
+The page is laid out as a desktop (flat wallpaper per chapter, draggable windows, a taskbar for navigation) with a drawn
+phone that really works. Visitors try both apps by using them on the page itself.
+
+* **Glidr mode:** the trackpad moves a cursor over the page; tap clicks, two fingers scroll, two-finger tap opens a menu,
+  tap-then-drag or holding *Left* drags windows. Scroll wheel and shortcut keys (Copy, Paste, Switch, Desktop) act on the page.
+* **Screen mode:** a live miniature of the page on the phone; tapping it clicks that spot (Direct touch).
+* **Five tricks** (move, click, scroll, shortcut, Screen) are tracked and end in a download prompt. Nothing is gated by them.
+* **Range test:** a distance slider showing where Bluetooth stops and Glidr Screen carries on.
+* From 1180 px wide the remote is open beside the page; below that it is a bottom sheet opened from the taskbar.
+* The remote is optional: the page reads, scrolls and downloads normally without it. The trackpad also takes arrow keys,
+  Enter and Page Up / Down. `prefers-reduced-motion` turns animation off.
+* Paper / Midnight windows and the apps' four accents; Geist and Geist Mono.
 
 ## Files
 
 | Path | What |
 |------|------|
-| `index.html` | content and section order (each `data-stage` section is one pose of the 3D scene) |
-| `css/style.css` | tokens, layout, components |
-| `js/ui.js` | theme and accent, reveals, card tilt, demos |
-| `js/scene.js` | the 3D scene, textures, stage poses (`S` array) |
+| `index.html` | content; each `.scene` section is one chapter (`data-wall` picks its wallpaper) |
+| `css/style.css` | tokens, wallpapers, windows, taskbar, remote, responsive rules |
+| `js/ui.js` | theme and accent, chapters, window dragging, demos, film, download links |
+| `js/remote.js` | the working remote: gestures, pointer, shortcut keys, Screen mirror |
 | `fonts/`, `img/` | Geist fonts (OFL) and the two app marks |
 
 ## Publishing (GitHub Pages)

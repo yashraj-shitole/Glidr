@@ -1,140 +1,113 @@
-/* Page behaviour: theme + accent, reveals, 3D card tilt, magnetic buttons, live demos.
-   Shares state with scene.js through window.Glidr. */
+/* Page behaviour that works with or without the remote: theme + accent, wallpaper chapters, taskbar,
+   window dragging, small demos, the launch film and the download links. */
 (function () {
   'use strict';
-  var doc = document.documentElement;
+  var doc = document.documentElement, body = document.body;
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var coarse = window.matchMedia('(pointer: coarse)').matches;
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
   var listeners = [];
   var G = window.Glidr = {
-    mouse: { x: 0, y: 0 },           // -1..1 across the viewport
-    reduce: reduce,
+    reduce: reduce, $: $, $$: $$,
     onChange: function (fn) { listeners.push(fn); },
-    accent: function () { return getComputedStyle(doc).getPropertyValue('--ac').trim() || '#d4ff3f'; },
-    light: function () { return doc.getAttribute('data-theme') === 'light'; }
+    changed: function () { listeners.forEach(function (f) { f(); }); }
   };
-  function emit() { listeners.forEach(function (f) { f(); }); }
 
   /* ---------- theme + accent (remembered per viewer, never required) ---------- */
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
-  function setTheme(t) {
-    doc.setAttribute('data-theme', t);
-    $$('[data-theme-set]').forEach(function (b) { b.classList.toggle('on', b.dataset.themeSet === t); });
-    var m = $('meta[name=theme-color]'); if (m) m.content = t === 'light' ? '#f1f2f4' : '#000000';
-    store('glidr-theme', t); emit();
-  }
+  G.store = store;
+  function setTheme(t) { doc.setAttribute('data-theme', t); store('glidr-theme', t); G.changed(); }
   function setAccent(a) {
     doc.setAttribute('data-accent', a);
-    $$('[data-accent-set]').forEach(function (b) { b.classList.toggle('on', b.dataset.accentSet === a); });
-    store('glidr-accent', a); emit();
+    $$('[data-accent-set]').forEach(function (b) { var on = b.dataset.accentSet === a; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+    store('glidr-accent', a); G.changed();
   }
   var st = store('glidr-theme'), sa = store('glidr-accent');
   if (st === 'light' || st === 'dark') setTheme(st);
-  if (sa && /^(volt|ember|sky|rose)$/.test(sa)) setAccent(sa);
-  $('#themeBtn').addEventListener('click', function () { setTheme(G.light() ? 'dark' : 'light'); });
-  $$('[data-theme-set]').forEach(function (b) { b.addEventListener('click', function () { setTheme(b.dataset.themeSet); }); });
+  setAccent(/^(volt|ember|sky|rose)$/.test(sa) ? sa : 'volt');
+  $('#themeBtn').addEventListener('click', function () { setTheme(doc.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); });
   $$('[data-accent-set]').forEach(function (b) { b.addEventListener('click', function () { setAccent(b.dataset.accentSet); }); });
 
-  /* ---------- hero headline: split into letters for the spring pop ---------- */
-  var idx = 0;
-  $$('h1.split .line').forEach(function (line) {
-    (function walk(node) {
-      Array.prototype.slice.call(node.childNodes).forEach(function (n) {
-        if (n.nodeType === 3) {
-          var frag = document.createDocumentFragment();
-          n.textContent.split(/(\s+)/).forEach(function (w) {
-            if (!w) return;
-            if (/^\s+$/.test(w)) { frag.appendChild(document.createTextNode(' ')); return; }
-            var word = document.createElement('span'); word.style.whiteSpace = 'nowrap'; word.style.display = 'inline-block';
-            w.split('').forEach(function (c) { var s = document.createElement('span'); s.className = 'ch'; s.style.setProperty('--i', idx++); s.textContent = c; word.appendChild(s); });
-            frag.appendChild(word);
-          });
-          n.parentNode.replaceChild(frag, n);
-        } else if (n.nodeType === 1) walk(n);
-      });
-    })(line);
-  });
-  $$('.hero .copy > :not(h1)').forEach(function (el, i) { el.style.setProperty('--d', i); });
-  requestAnimationFrame(function () { requestAnimationFrame(function () { doc.classList.add('ready'); }); });
-
-  /* ---------- scroll reveal ---------- */
-  var groups = new Map();
-  $$('.reveal').forEach(function (el) {
-    var p = el.parentElement; var n = groups.get(p) || 0; groups.set(p, n + 1);
-    el.style.setProperty('--rd', Math.min(n, 6) * 70 + 'ms');
-  });
-  if ('IntersectionObserver' in window && !reduce) {
-    var io = new IntersectionObserver(function (es) {
-      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
-    $$('.reveal').forEach(function (el) { io.observe(el); });
-  } else { $$('.reveal').forEach(function (el) { el.classList.add('in'); }); }
-
-  /* ---------- pointer: spotlight, scene parallax, magnetic buttons, card tilt ---------- */
-  var spot = $('.spot'), tx = innerWidth / 2, ty = innerHeight * 0.3, sx = tx, sy = ty;
-  window.addEventListener('pointermove', function (e) {
-    tx = e.clientX; ty = e.clientY;
-    G.mouse.x = (e.clientX / innerWidth) * 2 - 1; G.mouse.y = (e.clientY / innerHeight) * 2 - 1;
-  }, { passive: true });
-  (function loop() {
-    sx += (tx - sx) * 0.12; sy += (ty - sy) * 0.12;
-    spot.style.setProperty('--mx', sx.toFixed(1) + 'px'); spot.style.setProperty('--my', sy.toFixed(1) + 'px');
-    requestAnimationFrame(loop);
-  })();
-
-  if (!coarse && !reduce) {
-    $$('.magnetic').forEach(function (b) {
-      b.addEventListener('pointermove', function (e) {
-        var r = b.getBoundingClientRect();
-        b.style.transform = 'translate(' + ((e.clientX - r.left - r.width / 2) * 0.18).toFixed(1) + 'px,' + ((e.clientY - r.top - r.height / 2) * 0.28).toFixed(1) + 'px)';
-      });
-      b.addEventListener('pointerleave', function () { b.style.transform = ''; });
+  /* ---------- the wallpaper and the taskbar follow the chapter in the middle of the screen ---------- */
+  var scenes = $$('.scene'), current = null;
+  G.scenes = scenes;
+  var meta = $('meta[name=theme-color]');
+  function chapter() {
+    var mid = window.innerHeight * 0.5, pick = scenes[0];
+    scenes.forEach(function (s) { if (s.getBoundingClientRect().top <= mid) pick = s; });
+    if (pick === current) return;
+    current = pick;
+    body.setAttribute('data-wall', pick.dataset.wall);
+    $$('.tasks a').forEach(function (a) {
+      var on = a.dataset.task === pick.id || (a.dataset.task === 'screen' && pick.id === 'setup');
+      a.classList.toggle('on', on);
+      if (on) { a.setAttribute('aria-current', 'true'); var p = a.parentNode; p.scrollLeft = a.offsetLeft - p.offsetLeft - (p.clientWidth - a.offsetWidth) / 2; }
+      else a.removeAttribute('aria-current');
     });
-    $$('.card.tilt').forEach(function (c) {
-      c.addEventListener('pointermove', function (e) {
-        var r = c.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
-        c.classList.add('moving');
-        c.style.setProperty('--ry', ((px - 0.5) * 9).toFixed(2) + 'deg');
-        c.style.setProperty('--rx', ((0.5 - py) * 9).toFixed(2) + 'deg');
-        c.style.setProperty('--gx', (px * 100).toFixed(1) + '%'); c.style.setProperty('--gy', (py * 100).toFixed(1) + '%');
-        c.style.setProperty('--glare', 1);
-      });
-      c.addEventListener('pointerleave', function () {
-        c.classList.remove('moving');
-        c.style.setProperty('--rx', '0deg'); c.style.setProperty('--ry', '0deg'); c.style.setProperty('--glare', 0);
-      });
-    });
+    if (meta) setTimeout(function () { meta.content = getComputedStyle(body).backgroundColor; }, 600);
+    G.changed();
   }
+  G.chapter = function () { return current; };
+  window.addEventListener('scroll', chapter, { passive: true });
+  window.addEventListener('resize', chapter);
+  chapter();
 
-  /* ---------- nav hides while scrolling down, returns on the way up ---------- */
-  var nav = $('#nav'), lastY = 0;
-  window.addEventListener('scroll', function () {
-    var y = window.scrollY;
-    nav.classList.toggle('hide', y > lastY && y > 240);
-    lastY = y;
-  }, { passive: true });
+  /* ---------- clock ---------- */
+  var clock = $('#clock');
+  (function tick() { var d = new Date(); clock.textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); setTimeout(tick, 15000); })();
 
-  /* ---------- demo: the pad ---------- */
-  var pad = $('#demoPad');
-  if (pad) {
-    var glow = document.createElement('div'); glow.className = 'glow'; pad.appendChild(glow);
-    pad.addEventListener('pointermove', function (e) {
-      var r = pad.getBoundingClientRect(); glow.style.left = (e.clientX - r.left) + 'px'; glow.style.top = (e.clientY - r.top) + 'px';
+  /* ---------- windows: minimise, and drag by the title bar (mouse and pen; touch keeps scrolling) ---------- */
+  $$('.min').forEach(function (b) {
+    var win = b.closest('.win');
+    b.setAttribute('aria-expanded', 'true');
+    b.addEventListener('click', function () {
+      var off = win.classList.toggle('minimised');
+      b.setAttribute('aria-expanded', !off); G.changed();
     });
-    pad.addEventListener('pointerdown', function (e) {
-      var r = pad.getBoundingClientRect(), rip = document.createElement('div'); rip.className = 'rip';
-      rip.style.left = (e.clientX - r.left) + 'px'; rip.style.top = (e.clientY - r.top) + 'px';
-      pad.appendChild(rip); setTimeout(function () { rip.remove(); }, 800);
-    });
-  }
-
-  /* ---------- demo: shortcuts flash like a real press ---------- */
-  $$('.sc').forEach(function (b) {
-    b.addEventListener('click', function () { b.classList.add('fire'); setTimeout(function () { b.classList.remove('fire'); }, 260); });
   });
+  var z = 1;
+  G.dragger = function (win) {          // returns a function that moves a window by a delta
+    var x = parseFloat(win.style.getPropertyValue('--dx')) || 0, y = parseFloat(win.style.getPropertyValue('--dy')) || 0;
+    win.classList.add('dragging'); win.style.zIndex = ++z;
+    return {
+      by: function (dx, dy) { x += dx; y += dy; win.style.setProperty('--dx', x + 'px'); win.style.setProperty('--dy', y + 'px'); G.changed(); },
+      end: function () { win.classList.remove('dragging'); }
+    };
+  };
+  $$('.win.drag > .bar').forEach(function (bar) {
+    var win = bar.parentNode;
+    bar.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'touch' || e.button !== 0 || e.target.closest('button')) return;
+      e.preventDefault();
+      var d = G.dragger(win), px = e.clientX, py = e.clientY;
+      function move(ev) { d.by(ev.clientX - px, ev.clientY - py); px = ev.clientX; py = ev.clientY; }
+      function up() { d.end(); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); }
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+    });
+    bar.addEventListener('dblclick', function () { win.style.setProperty('--dx', '0px'); win.style.setProperty('--dy', '0px'); G.changed(); });
+  });
+
+  /* ---------- range test ---------- */
+  var dist = $('#dist');
+  if (dist) {
+    var walker = $('#walker'), out = $('#distOut'), vg = $('#vg'), vs = $('#vs');
+    var gRow = $('[data-v="g"]'), sRow = $('[data-v="s"]');
+    var update = function () {
+      var p = dist.value / 100;
+      // 0..0.33 of the slider covers 0..10 m, the rest stretches to "across town"
+      var m = p <= 0.33 ? p / 0.33 * 10 : 10 + Math.pow((p - 0.33) / 0.67, 3) * 4990;
+      var label = m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km';
+      walker.parentNode.style.setProperty('--p', p);
+      out.textContent = label; dist.setAttribute('aria-valuetext', label);
+      var far = m > 10;
+      gRow.classList.toggle('off', far);
+      vg.textContent = far ? 'Out of Bluetooth range' : 'Connected over Bluetooth';
+      vs.textContent = m <= 30 ? 'Connected over Wi-Fi' : 'Connected over the internet';
+      sRow.classList.remove('off');
+    };
+    dist.addEventListener('input', update); update();
+  }
 
   /* ---------- demo: typing in any language ---------- */
   var typeEl = $('#typeText');
@@ -143,6 +116,7 @@
     var pi = 0, ci = 0, dir = 1, wait = 0;
     if (reduce) typeEl.textContent = phrases[0];
     else setInterval(function () {
+      if (document.hidden) return;
       if (wait > 0) { wait--; return; }
       var chars = Array.from(phrases[pi]);
       ci += dir;
@@ -153,35 +127,35 @@
   }
 
   /* ---------- demo: monitors ---------- */
-  var labels = ['VIEWING DISPLAY 1 · 1920 × 1080', 'VIEWING DISPLAY 2 · 2560 × 1440', 'VIEWING DISPLAY 3 · 1280 × 1024'];
+  var labels = ['Viewing display 1 · 1920 × 1080', 'Viewing display 2 · 2560 × 1440', 'Viewing display 3 · 1280 × 1024'];
   $$('#monDemo .mon').forEach(function (b) {
+    b.setAttribute('aria-pressed', b.classList.contains('on'));
     b.addEventListener('click', function () {
-      $$('#monDemo .mon').forEach(function (o) { o.classList.toggle('on', o === b); });
+      $$('#monDemo .mon').forEach(function (o) { o.classList.toggle('on', o === b); o.setAttribute('aria-pressed', o === b); });
       $('#monLabel').textContent = labels[+b.dataset.i];
     });
   });
 
-  /* ---------- demo: live fps trace ---------- */
+  /* ---------- demo: fps trace (illustrative) ---------- */
   var sp = $('#sparkPath');
   if (sp) {
-    var pts = []; for (var i = 0; i < 60; i++) pts.push(24);
+    var pts = []; for (var i = 0; i < 50; i++) pts.push(30);
     var tick = 0;
     var upd = function () {
+      if (document.hidden) return;
       tick++;
-      var v = 24 - (Math.random() < 0.12 ? Math.random() * 3 : Math.random() * 0.6);
-      pts.push(v); pts.shift();
-      var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + (i * 300 / 59).toFixed(1) + ' ' + (10 + (26 - p) * 12).toFixed(1); }).join('');
-      sp.setAttribute('d', d);
-      if (tick % 6 === 0) { $('#fpsNum').textContent = Math.round(v); $('#pingNum').textContent = 12 + Math.round(Math.random() * 6); }
+      pts.push(30 - (Math.random() < 0.12 ? Math.random() * 4 : Math.random() * 0.8)); pts.shift();
+      sp.setAttribute('d', pts.map(function (p, i) { return (i ? 'L' : 'M') + (i * 300 / 49).toFixed(1) + ' ' + (8 + (31 - p) * 10).toFixed(1); }).join(''));
+      if (tick % 6 === 0) { $('#fpsNum').textContent = Math.round(pts[pts.length - 1]); $('#pingNum').textContent = 12 + Math.round(Math.random() * 6); }
     };
-    upd(); if (!reduce) setInterval(upd, 140);
+    upd(); if (!reduce) setInterval(upd, 160);
   }
 
   /* ---------- launch film: starts on click (so it can have sound), controls appear once it plays ---------- */
   (function () {
     var v = $('#film'), btn = $('#playBtn'), box = $('#player');
     if (!v || !btn) return;
-    btn.addEventListener('click', function () { v.controls = true; var p = v.play(); if (p && p.catch) p.catch(function () { v.controls = true; }); });
+    btn.addEventListener('click', function () { v.controls = true; var p = v.play(); if (p && p.catch) p.catch(function () { v.controls = true; box.classList.add('playing'); }); });
     v.addEventListener('play', function () { box.classList.add('playing'); });
     v.addEventListener('ended', function () { box.classList.remove('playing'); v.controls = false; v.currentTime = 0; });
   })();
@@ -225,17 +199,4 @@
         .catch(function () { /* keep the releases/latest fallback */ });
     });
   })();
-
-  /* ---------- decorative QR-style pattern (not a real code) ---------- */
-  var qr = $('#qr');
-  if (qr) {
-    var seed = 7, rnd = function () { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-    var finder = function (x, y) { return '<path d="M' + x + ' ' + y + 'h7v7h-7zM' + (x + 1) + ' ' + (y + 1) + 'v5h5v-5z" fill-rule="evenodd"/><rect x="' + (x + 2) + '" y="' + (y + 2) + '" width="3" height="3"/>'; };
-    var out = finder(0, 0) + finder(14, 0) + finder(0, 14);
-    for (var y = 0; y < 21; y++) for (var x = 0; x < 21; x++) {
-      var inF = (x < 8 && y < 8) || (x > 12 && y < 8) || (x < 8 && y > 12);
-      if (!inF && rnd() > 0.52) out += '<rect x="' + x + '" y="' + y + '" width="1" height="1"/>';
-    }
-    qr.innerHTML = out; qr.setAttribute('fill', 'currentColor');
-  }
 })();
